@@ -1,0 +1,238 @@
+# Auto IP2Region API 文档
+
+<div align="center">
+  <strong>高性能、智能化的IP地址地理信息解析库</strong><br>
+  支持多数据源/负载均衡/故障转移/缓存优化
+</div>
+
+---
+
+## 📌 概述
+
+Auto IP2Region 是一款轻量级IP地理信息解析框架，提供**统一查询接口**，整合本地ip2region数据库与多免费在线API，通过智能负载均衡和自动故障转移保障服务高可用。
+
+核心特性：
+- 多数据源兼容（本地库+6+免费API）
+- 动态负载均衡（权重/成功率/可用性综合评估）
+- 自动故障转移（本地优先降级策略）
+- 热点数据缓存（Guava Cache）
+- 可扩展架构（自定义数据源/策略）
+
+---
+
+## 🏗️ 整体架构图
+
+```mermaid
+flowchart TD
+    A[用户层] --> B[IpQueryEngine<br/>统一查询入口]
+    B --> C[缓存层<br/>Guava Cache]
+    B --> D[负载均衡器<br/>WeightedLoadBalancer]
+    B --> E[降级策略<br/>LocalFirstFallbackStrategy]
+    D --> F[数据源层]
+    E --> F
+    F --> F1[本地数据源<br/>LocalIp2RegionResolver]
+    F --> F2[API数据源<br/>Taobao/IpApiCo/...]
+    F1 --> G[ip2region数据库]
+    F2 --> H[HTTP请求处理器<br/>DefaultHttpRequestHandler]
+    H --> I[第三方API服务]
+```
+
+---
+
+## 🧩 核心组件
+
+### 1. 核心类
+
+#### IpInfo
+IP地理信息载体，封装解析结果
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| `ip` | String | IP地址 |
+| `country` | String | 国家 |
+| `region` | String | 地区 |
+| `province` | String | 省份 |
+| `city` | String | 城市 |
+| `isp` | String | ISP运营商 |
+
+**核心方法**：
+- `static IpInfo fromString(String ip, String regionString)`：从区域字符串构建实例
+- Getter/Setter：字段读写
+
+#### IpQueryEngine
+查询引擎核心类，协调数据源/负载均衡/缓存
+
+| 字段名 | 类型 | 描述 |
+|--------|------|------|
+| `sources` | List<IpSource> | 数据源列表 |
+| `loadBalancer` | LoadBalancer | 负载均衡器 |
+| `fallbackStrategy` | FallbackStrategy | 降级策略 |
+| `cache` | Cache<String, IpInfo> | 查询缓存 |
+
+**核心方法**：
+- `IpInfo query(String ip)`：IP查询主入口
+- `getCacheStats()`：缓存统计
+- `invalidateCache(String ip)`：清除指定IP缓存
+
+#### IpQueryEngineFactory
+引擎工厂类，提供快捷创建方式
+
+| 方法 | 用途 |
+|------|------|
+| `createWithLocalSource(...)` | 仅本地数据源 |
+| `createWithFreeApiSources(...)` | 仅免费API数据源 |
+| `createWithMixedSources(...)` | 本地+API混合数据源 |
+| `createWithCustomSources(...)` | 自定义数据源 |
+
+### 2. 核心接口
+
+```mermaid
+classDiagram
+    class IpSource {
+        +IpInfo query(String ip)
+        +String getName()
+        +int getWeight()
+        +double getSuccessRate()
+        +boolean isAvailable()
+    }
+    
+    class LoadBalancer {
+        +IpSource select(List<IpSource> sources)
+    }
+    
+    class FallbackStrategy {
+        +IpSource selectFallback(List<IpSource>, IpSource)
+    }
+    
+    class HttpRequestHandler {
+        +String get(String url, int timeout)
+        +String post(String url, String body, int timeout)
+    }
+```
+
+### 3. 抽象类
+
+#### AbstractIpSource
+IP数据源抽象基类，提供统计/限流能力
+
+| 核心字段 | 描述 |
+|----------|------|
+| `rateLimiter` | 限流器（Guava RateLimiter） |
+| `executionCount` | 执行次数统计 |
+| `successRate` | 动态成功率 |
+
+#### AbstractNetworkIpSource
+网络数据源抽象类，扩展HTTP请求能力
+
+| 字段 | 描述 |
+|------|------|
+| `httpRequestHandler` | HTTP请求处理器 |
+
+### 4. 实现类
+
+#### 负载均衡/降级实现
+- `WeightedLoadBalancer`：加权负载均衡（权重+成功率+可用性）
+- `LocalFirstFallbackStrategy`：本地优先降级策略
+
+#### 数据源实现
+| 实现类 | 数据源类型 | 权重 |
+|--------|------------|------|
+| `LocalIp2RegionResolver` | 本地ip2region库 | 100 |
+| `TaobaoIpResolver` | 淘宝API | 90 |
+| `PacificIpResolver` | Pacific网络API | 85 |
+| `IpApiCoResolver` | ipapi.co API | 80 |
+| `Ip9Resolver` | IP9 API | 75 |
+| `IpInfoResolver` | IPInfo API | 70 |
+| `XxlbResolver` | XXLB API | 70 |
+
+#### HTTP实现
+- `DefaultHttpRequestHandler`：基于JDK HttpClient的默认实现
+
+---
+
+## 📋 参数详解
+
+| 参数名 | 类型 | 描述 | 默认值 |
+|--------|------|------|--------|
+| `permitsPerSecond` | double | 限流速率（每秒请求数） | -（必填） |
+| `weight` | int | 数据源权重（优先级） | 见上表 |
+| `timeout` | int | HTTP超时时间（ms） | 5000 |
+| `dbPath` | String | 本地ip2region库路径 | -（必填） |
+
+---
+
+## ⚖️ 负载均衡算法
+
+采用**多维度加权评分算法**，公式：
+
+```
+score = 权重×0.4 + 成功率×0.25 + 负载均衡因子×0.2 + 可用性×0.15
+```
+
+### 可用性评估规则
+| 限流器等待时间 | 可用性得分 |
+|----------------|------------|
+| <10ms | 0.9 |
+| 10-100ms | 0.7 |
+| 100-500ms | 0.5 |
+| >500ms | 0.3 |
+| 5秒无请求 | 1.0 |
+
+---
+
+## 📥 缓存机制
+
+- **缓存组件**：Guava Cache
+- **缓存范围**：仅网络数据源结果（本地库无需缓存）
+- **配置参数**：
+    - 最大条目：10000
+    - 过期时间：30分钟
+    - 统计项：命中率/加载数/失效数
+
+---
+
+## 🔄 故障转移流程
+
+1. 主数据源查询失败 → 触发降级策略
+2. 优先选择本地数据源（若存在）
+3. 无本地数据源则选择次高权重可用数据源
+4. 无可用数据源则抛出异常
+
+---
+
+## 🚀 扩展性设计
+
+| 扩展点 | 实现方式 |
+|--------|----------|
+| 新数据源 | 实现`IpSource`接口（或继承`AbstractIpSource`） |
+| 自定义负载均衡 | 实现`LoadBalancer`接口 |
+| 自定义降级策略 | 实现`FallbackStrategy`接口 |
+| 自定义HTTP客户端 | 实现`HttpRequestHandler`接口 |
+
+---
+
+## 🎨 UML类关系图
+
+```mermaid
+classDiagram
+    direction LR
+    
+    IpInfo <-- IpSource : 返回
+    IpSource <|-- AbstractIpSource
+    AbstractIpSource <|-- AbstractNetworkIpSource
+    AbstractIpSource <|-- LocalIp2RegionResolver
+    AbstractNetworkIpSource <|-- TaobaoIpResolver
+    AbstractNetworkIpSource <|-- IpApiCoResolver
+    AbstractNetworkIpSource <|-- PacificIpResolver
+    
+    IpQueryEngine *-- IpSource : 包含
+    IpQueryEngine *-- LoadBalancer : 使用
+    IpQueryEngine *-- FallbackStrategy : 使用
+    IpQueryEngine *-- Cache : 缓存
+    
+    LoadBalancer <|-- WeightedLoadBalancer
+    FallbackStrategy <|-- LocalFirstFallbackStrategy
+    HttpRequestHandler <|-- DefaultHttpRequestHandler
+    
+    IpQueryEngineFactory --> IpQueryEngine : 创建
+```
