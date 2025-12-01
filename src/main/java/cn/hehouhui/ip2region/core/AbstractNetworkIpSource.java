@@ -64,6 +64,14 @@ public abstract class AbstractNetworkIpSource extends AbstractIpSource {
         return lastAcquireTime;
     }
 
+    public AtomicLong getTotalResponseTime() {
+        return totalResponseTime;
+    }
+
+    public AtomicLong getResponseCount() {
+        return responseCount;
+    }
+
     /**
      * 获取平均响应时间（毫秒）
      *
