@@ -1,7 +1,5 @@
 package cn.hehouhui.ip2region.core;
 
-import com.google.common.util.concurrent.RateLimiter;
-
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -24,12 +22,11 @@ public abstract class AbstractIpSource implements IpSource {
     protected volatile long lastFailureTime = 0;
 
 
-
     /**
      * 构造函数
      *
-     * @param name             数据源名称
-     * @param weight           数据源权重
+     * @param name   数据源名称
+     * @param weight 数据源权重
      */
     public AbstractIpSource(String name, int weight) {
         this.name = name;
@@ -65,6 +62,16 @@ public abstract class AbstractIpSource implements IpSource {
         return failureCount.get();
     }
 
+    /**
+     * 检查数据源是否可用
+     * <pre>
+     * 数据源的可用性通过以下条件判断：
+     * 1. 如果尚未执行过任何查询，则认为数据源可用
+     * 2. 如果最近一次执行失败，且失败时间在成功时间之后，则在5秒内认为暂时不可用
+     * 3. 如果历史成功率不低于50%，则认为数据源可用
+     * </pre>
+     * @return 是否可用，true表示可用，false表示不可
+     */
     @Override
     public boolean isAvailable() {
         // 默认实现：只要成功率不低于50%就算可用
@@ -86,7 +93,6 @@ public abstract class AbstractIpSource implements IpSource {
         // 成功率不低于50%则认为可用
         return getSuccessRate() >= 0.5;
     }
-
 
 
     /**

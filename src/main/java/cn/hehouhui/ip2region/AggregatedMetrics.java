@@ -71,7 +71,6 @@ public class AggregatedMetrics {
         for (IpSource source : sources) {
             // 根据数据源类型分别统计
             if (source instanceof AbstractNetworkIpSource networkSource) {
-                // 网络数据源特有的统计
                 networkMetrics.executionCount += source.getExecutionCount();
                 networkMetrics.failureCount += source.getFailureCount();
 

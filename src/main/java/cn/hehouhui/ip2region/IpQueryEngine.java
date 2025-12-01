@@ -58,12 +58,21 @@ public class IpQueryEngine {
 
     /**
      * 查询IP信息
-     *
+     * <pre>
+     * 该方法通过以下步骤查询IP信息：
+     * 1. 首先尝试从缓存中获取结果，如果存在则直接返回
+     * 2. 获取所有可用的数据源
+     * 3. 使用负载均衡器选择最优的数据源
+     * 4. 执行查询，如果成功则缓存结果并返回
+     * 5. 如果查询失败，则根据降级策略尝试其他数据源
+     * </pre>
      * @param ip IP地址
      *
      * @return IP信息
      *
-     * @throws Exception 查询异常
+     * @throws Exception 查询异常，可能的异常包括：
+     *                   - 当没有可用的数据源时抛出
+     *                   - 当数据源查询过程中发生错误时抛出
      */
     public IpInfo query(String ip) throws Exception {
         // 先尝试从缓存获取
@@ -149,7 +158,7 @@ public class IpQueryEngine {
     public List<IpSource> getSources() {
         return Collections.unmodifiableList(sources);
     }
-    
+
     /**
      * 获取聚合指标
      *
