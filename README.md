@@ -1,7 +1,5 @@
-
+# Auto IP2Region 智能化的IP地理位置解析库
 <div align="center">
-
-   **Auto IP2Region 智能化的IP地理位置解析库**
 
   [![License](https://img.shields.io/badge/license-Apache%202-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
   [![Java](https://img.shields.io/badge/Java-17+-brightgreen.svg)](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html)
@@ -9,6 +7,7 @@
   [![GitHub](https://img.shields.io/github/license/listener-He/auto-ip2region?color=blue)](https://github.com/listener-He/auto-ip2region/blob/main/LICENSE)
   [![GitHub stars](https://img.shields.io/github/stars/listener-He/auto-ip2region)](https://github.com/listener-He/auto-ip2region/stargazers)
   [![GitHub issues](https://img.shields.io/github/issues/listener-He/auto-ip2region)](https://github.com/listener-He/auto-ip2region/issues)
+
 </div>
 
 <br/>
@@ -158,12 +157,12 @@ Auto IP2Region采用先进的加权负载均衡算法，综合考虑多个维度
 
 ## 🚀 快速开始
 
-### 📦 Maven依赖
+### 📦 Maven依赖 (等待发布)
 
 ```xml
 <dependency>
     <groupId>cn.hehouhui</groupId>
-    <artifactId>ip2region</artifactId>
+    <artifactId>auto-ip2region</artifactId>
     <version>1.0.0</version>
 </dependency>
 ```
