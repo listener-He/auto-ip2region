@@ -17,6 +17,7 @@ Auto IP2Region 是一款轻量级IP地理信息解析框架，提供**统一查�
 - 自动故障转移（本地优先降级策略）
 - 热点数据缓存（Guava Cache）
 - 可扩展架构（自定义数据源/策略）
+- 实时性能监控（响应时间/成功率等指标）
 
 ---
 
@@ -73,6 +74,7 @@ IP地理信息载体，封装解析结果
 - `IpInfo query(String ip)`：IP查询主入口
 - `getCacheStats()`：缓存统计
 - `invalidateCache(String ip)`：清除指定IP缓存
+- `getAggregatedMetrics()`：获取聚合指标
 
 #### IpQueryEngineFactory
 引擎工厂类，提供快捷创建方式
@@ -94,6 +96,8 @@ classDiagram
         +int getWeight()
         +double getSuccessRate()
         +boolean isAvailable()
+        +long getExecutionCount()
+        +long getFailureCount()
     }
     
     class LoadBalancer {
@@ -119,6 +123,7 @@ IP数据源抽象基类，提供统计/限流能力
 |----------|------|
 | `rateLimiter` | 限流器（Guava RateLimiter） |
 | `executionCount` | 执行次数统计 |
+| `failureCount` | 失败次数统计 |
 | `successRate` | 动态成功率 |
 
 #### AbstractNetworkIpSource
@@ -127,6 +132,8 @@ IP数据源抽象基类，提供统计/限流能力
 | 字段 | 描述 |
 |------|------|
 | `httpRequestHandler` | HTTP请求处理器 |
+| `totalResponseTime` | 总响应时间统计 |
+| `responseCount` | 响应次数统计 |
 
 ### 4. 实现类
 
@@ -177,6 +184,85 @@ score = 权重×0.4 + 成功率×0.25 + 负载均衡因子×0.2 + 可用性×0.1
 | 100-500ms | 0.5 |
 | >500ms | 0.3 |
 | 5秒无请求 | 1.0 |
+
+### 响应时间评估规则
+| 平均响应时间 | 可用性得分 |
+|--------------|------------|
+| <50ms | 1.0 |
+| 50-200ms | 0.8 |
+| 200-500ms | 0.6 |
+| 500-1000ms | 0.4 |
+| >1000ms | 0.2 |
+
+综合可用性评估：`综合得分 = 限流等待时间得分 × 0.6 + 响应时间得分 × 0.4`
+
+---
+
+## 📊 聚合指标监控
+
+系统提供全面的聚合指标监控功能，通过`AggregatedMetrics`类获取系统运行状态：
+
+### 核心指标类
+
+#### AggregatedMetrics
+聚合指标主类，包含所有统计数据
+
+| 方法 | 描述 |
+|------|------|
+| `getLocalMetrics()` | 获取本地数据源指标 |
+| `getNetworkMetrics()` | 获取网络数据源指标 |
+| `getTotalMetrics()` | 获取总体指标 |
+| `getCacheSize()` | 获取缓存大小 |
+| `getCacheStats()` | 获取缓存统计信息 |
+
+#### DataSourceMetrics
+数据源指标类，包含执行次数、成功率、响应时间等
+
+| 方法 | 描述 |
+|------|------|
+| `getExecutionCount()` | 获取执行次数 |
+| `getFailureCount()` | 获取失败次数 |
+| `getSuccessRate()` | 获取成功率 |
+| `getAverageResponseTime()` | 获取平均响应时间（仅网络数据源） |
+| `getAllSources()` | 获取所有数据源的详细指标 |
+
+#### SourceMetrics
+单个数据源详细指标类
+
+| 方法 | 描述 |
+|------|------|
+| `getName()` | 获取数据源名称 |
+| `getWeight()` | 获取数据源权重 |
+| `getSuccessRate()` | 获取数据源成功率 |
+| `getExecutionCount()` | 获取执行次数 |
+| `getFailureCount()` | 获取失败次数 |
+| `getTotalResponseTime()` | 获取总响应时间 |
+| `getResponseCount()` | 获取响应次数 |
+
+### 使用示例
+```java
+// 获取聚合指标
+AggregatedMetrics metrics = engine.getAggregatedMetrics();
+
+// 查看本地数据源指标
+DataSourceMetrics localMetrics = metrics.getLocalMetrics();
+System.out.println("本地数据源执行次数: " + localMetrics.getExecutionCount());
+
+// 查看网络数据源指标
+DataSourceMetrics networkMetrics = metrics.getNetworkMetrics();
+System.out.println("网络数据源平均响应时间: " + networkMetrics.getAverageResponseTime());
+
+// 查看缓存指标
+System.out.println("缓存大小: " + metrics.getCacheSize());
+
+// 查看各数据源详细指标
+List<SourceMetrics> sourceMetricsList = networkMetrics.getAllSources();
+for (SourceMetrics sourceMetrics : sourceMetricsList) {
+    System.out.println("数据源: " + sourceMetrics.getName() + 
+                      ", 成功率: " + sourceMetrics.getSuccessRate() + 
+                      ", 平均响应时间: " + sourceMetrics.getTotalResponseTime() / sourceMetrics.getResponseCount());
+}
+```
 
 ---
 
@@ -235,4 +321,59 @@ classDiagram
     HttpRequestHandler <|-- DefaultHttpRequestHandler
     
     IpQueryEngineFactory --> IpQueryEngine : 创建
+    
+    class AggregatedMetrics {
+        +DataSourceMetrics getLocalMetrics()
+        +DataSourceMetrics getNetworkMetrics()
+        +DataSourceMetrics getTotalMetrics()
+        +long getCacheSize()
+        +String getCacheStats()
+    }
+    
+    class DataSourceMetrics {
+        +long getExecutionCount()
+        +long getFailureCount()
+        +double getSuccessRate()
+        +double getAverageResponseTime()
+        +List~SourceMetrics~ getAllSources()
+    }
+    
+    class SourceMetrics {
+        +String getName()
+        +int getWeight()
+        +double getSuccessRate()
+        +long getExecutionCount()
+        +long getFailureCount()
+        +Long getTotalResponseTime()
+        +Long getResponseCount()
+    }
+    
+    IpQueryEngine --> AggregatedMetrics : 创建
+    AggregatedMetrics --> DataSourceMetrics : 包含
+    DataSourceMetrics --> SourceMetrics : 包含
 ```
+
+## 🤝 贡献
+
+欢迎任何形式的贡献！如果您有任何建议或发现了bug，请提交[Issue](https://github.com/listener-He/auto-ip2region/issues)或者发起[Pull Request](https://github.com/listener-He/auto-ip2region/pulls)。
+
+### 开发环境搭建
+
+1. 克隆项目：`git clone https://github.com/listener-He/auto-ip2region.git`
+2. 导入IDE：使用IntelliJ IDEA或Eclipse导入Maven项目
+3. 构建项目：`mvn clean install`
+
+## 📄 许可证
+
+本项目采用Apache License 2.0许可证，详情请见[LICENSE](LICENSE)文件。
+
+## 💬 联系方式
+
+如有任何问题，请联系：
+- 邮箱：hehouhui@foxmail.com
+- GitHub Issues：[提交问题](https://github.com/listener-He/auto-ip2region/issues)
+
+---
+<div align="center">
+  Made with ❤️ by Honesty | © 2025 All rights reserved
+</div>
