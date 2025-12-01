@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * IpApi.Co解析器，基于ipapi.co免费API实现。
@@ -41,38 +42,33 @@ public class IpApiCoResolver extends AbstractNetworkIpSource {
         super(name, weight, permitsPerSecond, httpRequestHandler);
     }
 
+    /**
+     * 发送请求并解析IP信息
+     *
+     * @param ip IP地址
+     *
+     * @return IP信息
+     *
+     * @throws Exception 请求异常
+     */
     @Override
-    public IpInfo query(String ip) throws Exception {
-        double waitTime = rateLimiter.acquire();
-        updateAcquireTimeStats(waitTime);
+    protected Optional<IpInfo> request(String ip) throws Exception {
+        String urlString = "https://ipapi.co/" + ip + "/json/";
+        String response = httpRequestHandler.get(urlString, 5000);
 
-        try {
-            String urlString = "https://ipapi.co/" + ip + "/json/";
-            String response = httpRequestHandler.get(urlString, 5000);
+        JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
 
-            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-
-            // Check if response contains error
-            if (jsonResponse.has("error")) {
-                updateFailureStats();
-                throw new Exception("API Error: " + jsonResponse.get("reason").getAsString());
-            }
-
-            IpInfo ipInfo = new IpInfo();
-            ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
-            ipInfo.setCountry(jsonResponse.has("country_name") && !jsonResponse.get("country_name").isJsonNull() ? jsonResponse.get("country_name").getAsString() : "");
-            ipInfo.setProvince(jsonResponse.has("region") && !jsonResponse.get("region").isJsonNull() ? jsonResponse.get("region").getAsString() : "");
-            ipInfo.setCity(jsonResponse.has("city") && !jsonResponse.get("city").isJsonNull() ? jsonResponse.get("city").getAsString() : "");
-            ipInfo.setIsp(jsonResponse.has("org") && !jsonResponse.get("org").isJsonNull() ? jsonResponse.get("org").getAsString() : "");
-
-            updateSuccessStats();
-            return ipInfo;
-        } catch (IOException | InterruptedException e) {
-            updateFailureStats();
-            throw new Exception("Network error occurred", e);
-        } catch (Exception e) {
-            updateFailureStats();
-            throw e;
+        // Check if response contains error
+        if (jsonResponse.has("error")) {
+            throw new Exception("API Error: " + jsonResponse.get("reason").getAsString());
         }
+
+        IpInfo ipInfo = new IpInfo();
+        ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
+        ipInfo.setCountry(jsonResponse.has("country_name") && !jsonResponse.get("country_name").isJsonNull() ? jsonResponse.get("country_name").getAsString() : "");
+        ipInfo.setProvince(jsonResponse.has("region") && !jsonResponse.get("region").isJsonNull() ? jsonResponse.get("region").getAsString() : "");
+        ipInfo.setCity(jsonResponse.has("city") && !jsonResponse.get("city").isJsonNull() ? jsonResponse.get("city").getAsString() : "");
+        ipInfo.setIsp(jsonResponse.has("org") && !jsonResponse.get("org").isJsonNull() ? jsonResponse.get("org").getAsString() : "");
+        return Optional.of(ipInfo);
     }
 }

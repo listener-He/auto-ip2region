@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * Pacific网络IP解析器，基于whois.pconline.com.cn API实现。
@@ -41,32 +42,31 @@ public class PacificIpResolver extends AbstractNetworkIpSource {
         super(name, weight, permitsPerSecond, httpRequestHandler);
     }
 
+    /**
+     * 发送请求并解析IP信息
+     *
+     * @param ip IP地址
+     *
+     * @return IP信息
+     *
+     * @throws Exception 请求异常
+     */
     @Override
-    public IpInfo query(String ip) throws Exception {
-        double waitTime = rateLimiter.acquire();
-        updateAcquireTimeStats(waitTime);
-
-        try {
-            String urlString = "http://whois.pconline.com.cn/ipJson.jsp?ip=" + ip + "&json=true";
-            String response = httpRequestHandler.get(urlString, 5000);
-
-            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-
-            IpInfo ipInfo = new IpInfo();
-            ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
-            ipInfo.setCountry("中国"); // 该API主要针对中国IP
-            ipInfo.setProvince(jsonResponse.has("pro") && !jsonResponse.get("pro").isJsonNull() ? jsonResponse.get("pro").getAsString() : "");
-            ipInfo.setCity(jsonResponse.has("city") && !jsonResponse.get("city").isJsonNull() ? jsonResponse.get("city").getAsString() : "");
-            ipInfo.setIsp(jsonResponse.has("addr") && !jsonResponse.get("addr").isJsonNull() ? jsonResponse.get("addr").getAsString() : "");
-
-            updateSuccessStats();
-            return ipInfo;
-        } catch (IOException | InterruptedException e) {
-            updateFailureStats();
-            throw new Exception("Network error occurred", e);
-        } catch (Exception e) {
-            updateFailureStats();
-            throw e;
+    protected Optional<IpInfo> request(String ip) throws Exception {
+        String urlString = "http://whois.pconline.com.cn/ipJson.jsp?ip=" + ip + "&json=true";
+        String response = httpRequestHandler.get(urlString, 5000);
+        if (response == null || response.isEmpty()) {
+            return Optional.empty();
         }
+        JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+
+        IpInfo ipInfo = new IpInfo();
+        ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
+        ipInfo.setCountry("中国"); // 该API主要针对中国IP
+        ipInfo.setProvince(jsonResponse.has("pro") && !jsonResponse.get("pro").isJsonNull() ? jsonResponse.get("pro").getAsString() : "");
+        ipInfo.setCity(jsonResponse.has("city") && !jsonResponse.get("city").isJsonNull() ? jsonResponse.get("city").getAsString() : "");
+        ipInfo.setIsp(jsonResponse.has("addr") && !jsonResponse.get("addr").isJsonNull() ? jsonResponse.get("addr").getAsString() : "");
+
+        return Optional.of(ipInfo);
     }
 }

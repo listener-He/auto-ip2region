@@ -19,20 +19,16 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
      * 构造函数
      *
      * @param searcher         ip2region搜索引擎
-     * @param permitsPerSecond 每秒许可数（限流速率）
      * @param name             解析器名称
      * @param weight           解析器权重
      */
-    public LocalIp2RegionResolver(Searcher searcher, double permitsPerSecond, String name, int weight) {
-        super(name, weight, permitsPerSecond);
+    public LocalIp2RegionResolver(Searcher searcher, String name, int weight) {
+        super(name, weight);
         this.searcher = searcher;
     }
 
     @Override
     public IpInfo query(String ip) throws Exception {
-        // Acquire permit from rate limiter (blocking if necessary)
-        double waitTime = rateLimiter.acquire();
-        updateAcquireTimeStats(waitTime);
 
         try {
             String region = searcher.search(ip);

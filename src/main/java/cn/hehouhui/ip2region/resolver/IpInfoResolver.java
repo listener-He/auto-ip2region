@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * IPInfo解析器，基于ipinfo.io API实现。
@@ -41,32 +42,31 @@ public class IpInfoResolver extends AbstractNetworkIpSource {
         super(name, weight, permitsPerSecond, httpRequestHandler);
     }
 
+    /**
+     * 发送请求并解析IP信息
+     *
+     * @param ip IP地址
+     *
+     * @return IP信息
+     *
+     * @throws Exception 请求异常
+     */
     @Override
-    public IpInfo query(String ip) throws Exception {
-        double waitTime = rateLimiter.acquire();
-        updateAcquireTimeStats(waitTime);
-
-        try {
-            String urlString = "http://ipinfo.io/" + ip + "/json";
-            String response = httpRequestHandler.get(urlString, 5000);
-
-            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-
-            IpInfo ipInfo = new IpInfo();
-            ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
-            ipInfo.setCountry(jsonResponse.has("country") && !jsonResponse.get("country").isJsonNull() ? jsonResponse.get("country").getAsString() : "");
-            ipInfo.setProvince(jsonResponse.has("region") && !jsonResponse.get("region").isJsonNull() ? jsonResponse.get("region").getAsString() : "");
-            ipInfo.setCity(jsonResponse.has("city") && !jsonResponse.get("city").isJsonNull() ? jsonResponse.get("city").getAsString() : "");
-            ipInfo.setIsp(jsonResponse.has("org") && !jsonResponse.get("org").isJsonNull() ? jsonResponse.get("org").getAsString() : "");
-
-            updateSuccessStats();
-            return ipInfo;
-        } catch (IOException | InterruptedException e) {
-            updateFailureStats();
-            throw new Exception("Network error occurred", e);
-        } catch (Exception e) {
-            updateFailureStats();
-            throw e;
+    protected Optional<IpInfo> request(String ip) throws Exception {
+        String urlString = "http://ipinfo.io/" + ip + "/json";
+        String response = httpRequestHandler.get(urlString, 5000);
+        if (response == null || response.isEmpty()) {
+            return Optional.empty();
         }
+        JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+
+        IpInfo ipInfo = new IpInfo();
+        ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
+        ipInfo.setCountry(jsonResponse.has("country") && !jsonResponse.get("country").isJsonNull() ? jsonResponse.get("country").getAsString() : "");
+        ipInfo.setProvince(jsonResponse.has("region") && !jsonResponse.get("region").isJsonNull() ? jsonResponse.get("region").getAsString() : "");
+        ipInfo.setCity(jsonResponse.has("city") && !jsonResponse.get("city").isJsonNull() ? jsonResponse.get("city").getAsString() : "");
+        ipInfo.setIsp(jsonResponse.has("org") && !jsonResponse.get("org").isJsonNull() ? jsonResponse.get("org").getAsString() : "");
+
+        return Optional.of(ipInfo);
     }
 }

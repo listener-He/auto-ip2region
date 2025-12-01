@@ -1,6 +1,6 @@
 package cn.hehouhui.ip2region.loadbalancer;
 
-import cn.hehouhui.ip2region.core.AbstractIpSource;
+import cn.hehouhui.ip2region.core.AbstractNetworkIpSource;
 import cn.hehouhui.ip2region.core.IpSource;
 
 import java.util.List;
@@ -32,9 +32,9 @@ public class WeightedLoadBalancer implements LoadBalancer {
 
         // 计算所有数据源中的最大执行次数，用于负载均衡计算
         long maxExecutionCount = sources.stream()
-                .mapToLong(IpSource::getExecutionCount)
-                .max()
-                .orElse(0);
+            .mapToLong(IpSource::getExecutionCount)
+            .max()
+            .orElse(0);
 
         // 如果所有数据源执行次数都为0，则使用随机选择
         if (maxExecutionCount == 0) {
@@ -62,8 +62,9 @@ public class WeightedLoadBalancer implements LoadBalancer {
      * 计算数据源得分
      * 算法：score = weight * 0.4 + successRate * 0.25 + (1 - (executionCount / maxExecutionCount)) * 0.2 + availableRate * 0.15
      *
-     * @param source           数据源
+     * @param source            数据源
      * @param maxExecutionCount 最大执行次数
+     *
      * @return 得分
      */
     private double calculateScore(IpSource source, long maxExecutionCount) {
@@ -88,6 +89,7 @@ public class WeightedLoadBalancer implements LoadBalancer {
      * 通过评估限流器的状态来计算数据源的可用性
      *
      * @param source 数据源
+     *
      * @return 可用性比率 (0.0 - 1.0)
      */
     private double calculateAvailableRate(IpSource source) {
@@ -96,8 +98,8 @@ public class WeightedLoadBalancer implements LoadBalancer {
             return 0.0;
         }
 
-        // 对于 AbstractIpSource 类型的数据源，我们可以进一步评估其限流器状态
-        if (source instanceof AbstractIpSource abstractIpSource) {
+        // 对于 AbstractNetworkIpSource 类型的数据源，我们可以进一步评估其限流器状态
+        if (source instanceof AbstractNetworkIpSource abstractIpSource) {
 
             // 检查最近一次获取令牌的时间，如果超过一定时间未使用，则认为可用性较高
             long timeSinceLastAcquire = System.currentTimeMillis() - abstractIpSource.getLastAcquireTime();
@@ -106,7 +108,6 @@ public class WeightedLoadBalancer implements LoadBalancer {
             if (timeSinceLastAcquire > 5000) {
                 return 1.0;
             }
-
             // 根据最近一次获取令牌的等待时间评估可用性
             // 等待时间越长，说明系统越繁忙，可用性越低
             double lastWaitTime = abstractIpSource.getLastAcquireWaitTime();

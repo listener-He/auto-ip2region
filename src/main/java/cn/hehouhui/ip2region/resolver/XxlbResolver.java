@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * XXLB解析器，基于ipapi.xxlb.org API实现。
@@ -42,47 +43,46 @@ public class XxlbResolver extends AbstractNetworkIpSource {
         super(name, weight, permitsPerSecond, httpRequestHandler);
     }
 
+    /**
+     * 发送请求并解析IP信息
+     *
+     * @param ip IP地址
+     *
+     * @return IP信息
+     *
+     * @throws Exception 请求异常
+     */
     @Override
-    public IpInfo query(String ip) throws Exception {
-        double waitTime = rateLimiter.acquire();
-        updateAcquireTimeStats(waitTime);
-
-        try {
-            String urlString = "https://ipapi.xxlb.org/?ip=" + ip;
-            String response = httpRequestHandler.get(urlString, 5000);
-
-            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-
-            IpInfo ipInfo = new IpInfo();
-            ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
-            ipInfo.setCountry(jsonResponse.has("country") && jsonResponse.getAsJsonObject("country").has("name")
-                && !jsonResponse.getAsJsonObject("country").get("name").isJsonNull()
-                ? jsonResponse.getAsJsonObject("country").get("name").getAsString() : "");
-
-            // 处理地区信息
-            if (jsonResponse.has("regions") && !jsonResponse.get("regions").isJsonNull()) {
-                JsonArray regions = jsonResponse.getAsJsonArray("regions");
-                if (regions.size() > 0) {
-                    ipInfo.setProvince(regions.get(0).getAsString());
-                }
-                if (regions.size() > 1) {
-                    ipInfo.setCity(regions.get(1).getAsString());
-                }
-            }
-
-            // 处理ISP信息
-            if (jsonResponse.has("as") && !jsonResponse.getAsJsonObject("as").get("info").isJsonNull()) {
-                ipInfo.setIsp(jsonResponse.getAsJsonObject("as").get("info").getAsString());
-            }
-
-            updateSuccessStats();
-            return ipInfo;
-        } catch (IOException | InterruptedException e) {
-            updateFailureStats();
-            throw new Exception("Network error occurred", e);
-        } catch (Exception e) {
-            updateFailureStats();
-            throw e;
+    protected Optional<IpInfo> request(String ip) throws Exception {
+        String urlString = "https://ipapi.xxlb.org/?ip=" + ip;
+        String response = httpRequestHandler.get(urlString, 5000);
+        if (response == null || response.isEmpty()) {
+            return Optional.empty();
         }
+        JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+
+        IpInfo ipInfo = new IpInfo();
+        ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");
+        ipInfo.setCountry(jsonResponse.has("country") && jsonResponse.getAsJsonObject("country").has("name")
+            && !jsonResponse.getAsJsonObject("country").get("name").isJsonNull()
+            ? jsonResponse.getAsJsonObject("country").get("name").getAsString() : "");
+
+        // 处理地区信息
+        if (jsonResponse.has("regions") && !jsonResponse.get("regions").isJsonNull()) {
+            JsonArray regions = jsonResponse.getAsJsonArray("regions");
+            if (!regions.isEmpty()) {
+                ipInfo.setProvince(regions.get(0).getAsString());
+            }
+            if (regions.size() > 1) {
+                ipInfo.setCity(regions.get(1).getAsString());
+            }
+        }
+
+        // 处理ISP信息
+        if (jsonResponse.has("as") && !jsonResponse.getAsJsonObject("as").get("info").isJsonNull()) {
+            ipInfo.setIsp(jsonResponse.getAsJsonObject("as").get("info").getAsString());
+        }
+
+        return Optional.of(ipInfo);
     }
 }
