@@ -69,7 +69,7 @@ public class WeightedLoadBalancer implements LoadBalancer {
      */
     private double calculateScore(IpSource source, long maxExecutionCount) {
         // 权重占比40%
-        double weightScore = source.getWeight() * 0.4;
+        double weightScore = normalizeWeight(source.getWeight()) * 0.4;
 
         // 成功率占比25%
         double successRateScore = source.getSuccessRate() * 0.25;
@@ -85,8 +85,19 @@ public class WeightedLoadBalancer implements LoadBalancer {
     }
 
     /**
+     * 标准化权重值，将其映射到0-1范围内
+     *
+     * @param weight 权重值
+     * @return 标准化后的权重值 (0.0 - 1.0)
+     */
+    private double normalizeWeight(int weight) {
+        // 假设权重范围在0-100之间，可以根据实际情况调整
+        return Math.min(1.0, Math.max(0.0, (double) weight / 100.0));
+    }
+
+    /**
      * 计算数据源的可用性比率
-     * 通过评估限流器的状态来计算数据源的可用性
+     * 通过评估限流器的状态和平均响应时间来计算数据源的可用性
      *
      * @param source 数据源
      *
@@ -98,40 +109,88 @@ public class WeightedLoadBalancer implements LoadBalancer {
             return 0.0;
         }
 
-        // 对于 AbstractNetworkIpSource 类型的数据源，我们可以进一步评估其限流器状态
-        if (source instanceof AbstractNetworkIpSource abstractIpSource) {
-
+        // 对于 AbstractNetworkIpSource 类型的数据源，我们可以进一步评估其限流器状态和响应时间
+        if (source instanceof AbstractNetworkIpSource abstractNetworkIpSource) {
             // 检查最近一次获取令牌的时间，如果超过一定时间未使用，则认为可用性较高
-            long timeSinceLastAcquire = System.currentTimeMillis() - abstractIpSource.getLastAcquireTime();
+            long timeSinceLastAcquire = System.currentTimeMillis() - abstractNetworkIpSource.getLastAcquireTime();
 
             // 如果最近5秒内没有请求，则认为系统负载较低
             if (timeSinceLastAcquire > 5000) {
                 return 1.0;
             }
-            // 根据最近一次获取令牌的等待时间评估可用性
-            // 等待时间越长，说明系统越繁忙，可用性越低
-            double lastWaitTime = abstractIpSource.getLastAcquireWaitTime();
 
-            // 如果等待时间小于10毫秒，认为系统负载很低
-            if (lastWaitTime < 0.01) {
-                return 0.9;
-            }
+            // 综合考虑限流等待时间和平均响应时间
+            double lastWaitTime = abstractNetworkIpSource.getLastAcquireWaitTime();
+            double averageResponseTime = abstractNetworkIpSource.getAverageResponseTime();
 
-            // 如果等待时间在10毫秒到100毫秒之间，认为系统负载中等
-            if (lastWaitTime < 0.1) {
-                return 0.7;
-            }
+            // 计算基于限流等待时间的可用性评分
+            double waitTimeScore = calculateWaitTimeScore(lastWaitTime);
 
-            // 如果等待时间在100毫秒到500毫秒之间，认为系统负载较高
-            if (lastWaitTime < 0.5) {
-                return 0.5;
-            }
+            // 计算基于平均响应时间的可用性评分
+            double responseTimeScore = calculateResponseTimeScore(averageResponseTime);
 
-            // 如果等待时间超过500毫秒，认为系统负载很高
-            return 0.3;
+            // 综合两个评分，其中限流等待时间占60%，平均响应时间占40%
+            return waitTimeScore * 0.6 + responseTimeScore * 0.4;
         }
 
         // 对于其他类型的源，基于可用性返回默认值
         return 0.9;
+    }
+
+    /**
+     * 根据限流等待时间计算可用性评分
+     *
+     * @param waitTime 等待时间（秒）
+     * @return 可用性评分 (0.0 - 1.0)
+     */
+    private double calculateWaitTimeScore(double waitTime) {
+        // 如果等待时间小于10毫秒，认为系统负载很低
+        if (waitTime < 0.01) {
+            return 0.9;
+        }
+
+        // 如果等待时间在10毫秒到100毫秒之间，认为系统负载中等
+        if (waitTime < 0.1) {
+            return 0.7;
+        }
+
+        // 如果等待时间在100毫秒到500毫秒之间，认为系统负载较高
+        if (waitTime < 0.5) {
+            return 0.5;
+        }
+
+        // 如果等待时间超过500毫秒，认为系统负载很高
+        return 0.3;
+    }
+
+    /**
+     * 根据平均响应时间计算可用性评分
+     *
+     * @param responseTime 平均响应时间（毫秒）
+     * @return 可用性评分 (0.0 - 1.0)
+     */
+    private double calculateResponseTimeScore(double responseTime) {
+        // 如果平均响应时间小于50毫秒，认为系统响应很快
+        if (responseTime < 50) {
+            return 1.0;
+        }
+
+        // 如果平均响应时间在50毫秒到200毫秒之间，认为系统响应正常
+        if (responseTime < 200) {
+            return 0.8;
+        }
+
+        // 如果平均响应时间在200毫秒到500毫秒之间，认为系统响应较慢
+        if (responseTime < 500) {
+            return 0.6;
+        }
+
+        // 如果平均响应时间在500毫秒到1000毫秒之间，认为系统响应很慢
+        if (responseTime < 1000) {
+            return 0.4;
+        }
+
+        // 如果平均响应时间超过1000毫秒，认为系统响应极慢
+        return 0.2;
     }
 }
