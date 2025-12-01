@@ -149,4 +149,13 @@ public class IpQueryEngine {
     public List<IpSource> getSources() {
         return Collections.unmodifiableList(sources);
     }
+    
+    /**
+     * 获取聚合指标
+     *
+     * @return 聚合指标
+     */
+    public AggregatedMetrics getAggregatedMetrics() {
+        return AggregatedMetrics.fromSources(sources, cache.size(), getCacheStats());
+    }
 }
