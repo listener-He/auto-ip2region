@@ -1,14 +1,19 @@
 package cn.hehouhui.ip2region;
 
 import cn.hehouhui.ip2region.core.IpSource;
+import cn.hehouhui.ip2region.fallback.LocalFirstFallbackStrategy;
+import cn.hehouhui.ip2region.http.DefaultHttpRequestHandler;
 import cn.hehouhui.ip2region.http.HttpRequestHandler;
+import cn.hehouhui.ip2region.loadbalancer.WeightedLoadBalancer;
 import cn.hehouhui.ip2region.resolver.*;
-import org.lionsoul.ip2region.xdb.Searcher;
+import com.maxmind.db.Reader;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * IP查询引擎工厂类，提供多种创建IpQueryEngine实例的方法。
@@ -18,419 +23,311 @@ import java.util.List;
  */
 public class IpQueryEngineFactory {
 
+    private static volatile Boolean LOAD_GEO_IP_CLASS;
+
+    private static volatile Boolean LOAD_IP2REGION_CLASS;
+
+
+    public static final String GEO_IP_DB_FILE = "geolite2-city.mmdb";
+
+    public static final String IP2REGION_DB_V4_FILE = "ip2region_v4.xdb";
+
+    public static final String IP2REGION_DB_V6_FILE = "ip2region_v6.xdb";
+
+    public static final String TEMP_DIR = System.getProperty("java.io.tmpdir") + File.pathSeparator + "auto-ip2region";
+
+    public static final String RESOURCES_DIR = "auto-ip2region";
+
     /**
-     * 创建只包含本地ip2region数据源的查询引擎
+     * 尝试从资源目录加载GeoIP2数据源
+     * 该方法会检查classpath中是否存在GeoIP2依赖，并尝试从资源目录加载GeoLite2-City.mmdb数据库文件
+     * 支持从jar包内和文件系统两种方式加载数据库文件
      *
-     * @param dbPath           ip2region数据库文件路径
-     *
-     * @return IP查询引擎
-     *
-     * @throws IOException 数据库文件读取异常
+     * @return 包含GeoIP2解析器的Optional，如果加载失败或缺少依赖则返回empty
      */
-    public static IpQueryEngine createWithLocalSource(String dbPath) throws IOException {
-        try {
-            Class.forName("org.lionsoul.ip2region.xdb.Searcher");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException("缺少ip2region依赖，请添加相关依赖后再使用此功能: org.lionsoul:ip2region", e);
-        }
-
-        try {
-            LocalIp2RegionResolver localSource = new LocalIp2RegionResolver(dbPath, false, false, "LocalIp2Region", 100);
-            List<IpSource> sources = new ArrayList<>();
-            sources.add(localSource);
-
-            return new IpQueryEngine(sources);
-        } catch (Exception e) {
-            if (e instanceof IOException) {
-                throw (IOException) e;
+    public static Optional<IpSource> tryLoadGeoIpSource() {
+        if (LOAD_GEO_IP_CLASS == null) {
+            synchronized (GeoIP2Resolver.class) {
+                if (LOAD_GEO_IP_CLASS == null) {
+                    try {
+                        Class.forName("com.maxmind.geoip2.DatabaseReader");
+                        LOAD_GEO_IP_CLASS = true;
+                    } catch (ClassNotFoundException e) {
+                        LOAD_GEO_IP_CLASS = false;
+                    }
+                }
             }
-            throw new IOException("创建ip2region数据源时出错", e);
         }
-    }
-
-    /**
-     * 创建包含多个免费API数据源的查询引擎
-     *
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     *
-     * @return IP查询引擎
-     */
-    public static IpQueryEngine createWithFreeApiSources(double taobaoPermitsPerSecond, double ipApiCoPermitsPerSecond) {
-        return createWithFreeApiSources(taobaoPermitsPerSecond, ipApiCoPermitsPerSecond, null);
-    }
-
-    /**
-     * 创建包含多个免费API数据源的查询引擎
-     *
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     * @param httpRequestHandler      HTTP请求处理器
-     *
-     * @return IP查询引擎
-     */
-    public static IpQueryEngine createWithFreeApiSources(double taobaoPermitsPerSecond, double ipApiCoPermitsPerSecond,
-                                                         HttpRequestHandler httpRequestHandler) {
-        TaobaoIpResolver taobaoSource = httpRequestHandler == null ?
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90) :
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90, httpRequestHandler);
-
-        IpApiCoResolver ipApiCoSource = httpRequestHandler == null ?
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80) :
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80, httpRequestHandler);
-
-        List<IpSource> sources = new ArrayList<>();
-        sources.add(taobaoSource);
-        sources.add(ipApiCoSource);
-
-        return new IpQueryEngine(sources);
-    }
-
-    /**
-     * 创建包含所有免费API数据源的查询引擎
-     *
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     * @param pacificPermitsPerSecond Pacific网络API限流速率
-     * @param ip9PermitsPerSecond     IP9 API限流速率
-     * @param ipInfoPermitsPerSecond  IPInfo API限流速率
-     * @param xxlbPermitsPerSecond    XXLB API限流速率
-     * @param vorePermitsPerSecond    Vore API限流速率
-     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
-     *
-     * @return IP查询引擎
-     */
-    public static IpQueryEngine createWithAllFreeApiSources(
-        double taobaoPermitsPerSecond,
-        double ipApiCoPermitsPerSecond,
-        double pacificPermitsPerSecond,
-        double ip9PermitsPerSecond,
-        double ipInfoPermitsPerSecond,
-        double xxlbPermitsPerSecond,
-        double vorePermitsPerSecond,
-        double ipMoePermitsPerSecond) {
-        return createWithAllFreeApiSources(taobaoPermitsPerSecond, ipApiCoPermitsPerSecond, pacificPermitsPerSecond,
-            ip9PermitsPerSecond, ipInfoPermitsPerSecond, xxlbPermitsPerSecond, vorePermitsPerSecond, ipMoePermitsPerSecond, null);
-    }
-
-    /**
-     * 创建包含所有免费API数据源的查询引擎
-     *
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     * @param pacificPermitsPerSecond Pacific网络API限流速率
-     * @param ip9PermitsPerSecond     IP9 API限流速率
-     * @param ipInfoPermitsPerSecond  IPInfo API限流速率
-     * @param xxlbPermitsPerSecond    XXLB API限流速率
-     * @param vorePermitsPerSecond    Vore API限流速率
-     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
-     * @param httpRequestHandler      HTTP请求处理器
-     *
-     * @return IP查询引擎
-     */
-    public static IpQueryEngine createWithAllFreeApiSources(
-        double taobaoPermitsPerSecond,
-        double ipApiCoPermitsPerSecond,
-        double pacificPermitsPerSecond,
-        double ip9PermitsPerSecond,
-        double ipInfoPermitsPerSecond,
-        double xxlbPermitsPerSecond,
-        double vorePermitsPerSecond,
-        double ipMoePermitsPerSecond,
-        HttpRequestHandler httpRequestHandler) {
-
-        TaobaoIpResolver taobaoSource = httpRequestHandler == null ?
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90) :
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90, httpRequestHandler);
-
-        IpApiCoResolver ipApiCoSource = httpRequestHandler == null ?
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80) :
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80, httpRequestHandler);
-
-        PacificIpResolver pacificSource = httpRequestHandler == null ?
-            new PacificIpResolver(pacificPermitsPerSecond, "Pacific", 85) :
-            new PacificIpResolver(pacificPermitsPerSecond, "Pacific", 85, httpRequestHandler);
-
-        Ip9Resolver ip9Source = httpRequestHandler == null ?
-            new Ip9Resolver(ip9PermitsPerSecond, "IP9", 75) :
-            new Ip9Resolver(ip9PermitsPerSecond, "IP9", 75, httpRequestHandler);
-
-        IpInfoResolver ipInfoSource = httpRequestHandler == null ?
-            new IpInfoResolver(ipInfoPermitsPerSecond, "IPInfo", 70) :
-            new IpInfoResolver(ipInfoPermitsPerSecond, "IPInfo", 70, httpRequestHandler);
-
-        XxlbResolver xxlbSource = httpRequestHandler == null ?
-            new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70) :
-            new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70, httpRequestHandler);
-
-        VoreResolver voreSource = httpRequestHandler == null ?
-            new VoreResolver("Vore", 75, vorePermitsPerSecond, null) :
-            new VoreResolver("Vore", 75, vorePermitsPerSecond, httpRequestHandler);
-
-        IpMoeResolver ipMoeSource = httpRequestHandler == null ?
-            new IpMoeResolver("IP-MOE", 75, ipMoePermitsPerSecond, null) :
-            new IpMoeResolver("IP-MOE", 75, ipMoePermitsPerSecond, httpRequestHandler);
-
-        List<IpSource> sources = new ArrayList<>();
-        sources.add(taobaoSource);
-        sources.add(ipApiCoSource);
-        sources.add(pacificSource);
-        sources.add(ip9Source);
-        sources.add(ipInfoSource);
-        sources.add(xxlbSource);
-        sources.add(voreSource);
-        sources.add(ipMoeSource);
-
-        return new IpQueryEngine(sources);
-    }
-
-    /**
-     * 创建混合数据源的查询引擎（本地+免费API）
-     *
-     * @param dbPath                  ip2region数据库文件路径
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     *
-     * @return IP查询引擎
-     *
-     * @throws IOException 数据库文件读取异常
-     */
-    public static IpQueryEngine createWithMixedSources(
-        String dbPath,
-        double taobaoPermitsPerSecond,
-        double ipApiCoPermitsPerSecond) throws IOException {
-        return createWithMixedSources(dbPath, taobaoPermitsPerSecond, ipApiCoPermitsPerSecond, null);
-    }
-
-    /**
-     * 创建混合数据源的查询引擎（本地+免费API）
-     *
-     * @param dbPath                  ip2region数据库文件路径
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     * @param httpRequestHandler      HTTP请求处理器
-     *
-     * @return IP查询引擎
-     *
-     * @throws IOException 数据库文件读取异常
-     */
-    public static IpQueryEngine createWithMixedSources(
-        String dbPath,
-        double taobaoPermitsPerSecond,
-        double ipApiCoPermitsPerSecond,
-        HttpRequestHandler httpRequestHandler) throws IOException {
-
-        // 创建本地数据源
-        LocalIp2RegionResolver localSource;
+        if (!LOAD_GEO_IP_CLASS) {
+            return Optional.empty();
+        }
+        // 尝试从资源目录加载GeoIP2数据库文件
         try {
-            Class.forName("org.lionsoul.ip2region.xdb.Searcher");
-            localSource = new LocalIp2RegionResolver(dbPath, false, false, "LocalIp2Region", 100);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException("缺少ip2region依赖，请添加相关依赖后再使用此功能: org.lionsoul:ip2region", e);
+            // 首先尝试从项目的resources目录加载
+            java.net.URL resourceUrl = IpQueryEngineFactory.class.getClassLoader()
+                .getResource(RESOURCES_DIR + File.pathSeparator + GEO_IP_DB_FILE);
+            if (resourceUrl == null) {
+                return Optional.empty();
+            }
+            // 如果在jar包内找到了文件
+            if ("jar".equals(resourceUrl.getProtocol())) {
+                // 从jar包中提取文件到临时目录
+                java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(TEMP_DIR + File.pathSeparator + "geoip2");
+                java.nio.file.Path tempFile = tempDir.resolve(GEO_IP_DB_FILE);
+                try (java.io.InputStream is = resourceUrl.openStream()) {
+                    java.nio.file.Files.copy(is, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                // 创建GeoIP2解析器
+                com.maxmind.geoip2.DatabaseReader reader = new com.maxmind.geoip2.DatabaseReader.Builder(tempFile.toFile())
+                    .fileMode(Reader.FileMode.MEMORY_MAPPED)
+                    .build();
+                GeoIP2Resolver resolver = new GeoIP2Resolver(reader, "GeoIP2-Resource", 95);
+                return Optional.of(resolver);
+            }
+            // 如果是文件系统中的文件
+            else if ("file".equals(resourceUrl.getProtocol())) {
+                java.io.File dbFile = new java.io.File(resourceUrl.toURI());
+                com.maxmind.geoip2.DatabaseReader reader = new com.maxmind.geoip2.DatabaseReader.Builder(dbFile)
+                    .fileMode(Reader.FileMode.MEMORY_MAPPED).build();
+                GeoIP2Resolver resolver = new GeoIP2Resolver(reader, "GeoIP2", 95);
+                return Optional.of(resolver);
+            }
         } catch (Exception e) {
-            throw new IOException("创建ip2region数据源时出错", e);
+            // 忽略异常，返回empty
         }
 
-        // 创建API数据源
-        TaobaoIpResolver taobaoSource = httpRequestHandler == null ?
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90) :
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90, httpRequestHandler);
-
-        IpApiCoResolver ipApiCoSource = httpRequestHandler == null ?
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80) :
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80, httpRequestHandler);
-
-        List<IpSource> sources = new ArrayList<>();
-        sources.add(localSource);
-        sources.add(taobaoSource);
-        sources.add(ipApiCoSource);
-
-        return new IpQueryEngine(sources);
+        return Optional.empty();
     }
 
-    /**
-     * 创建完整的混合数据源查询引擎（本地+所有免费API）
-     *
-     * @param ip2regionDbPath         ip2region数据库文件路径
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     * @param pacificPermitsPerSecond Pacific网络API限流速率
-     * @param ip9PermitsPerSecond     IP9 API限流速率
-     * @param ipInfoPermitsPerSecond  IPInfo API限流速率
-     * @param xxlbPermitsPerSecond    XXLB API限流速率
-     * @param vorePermitsPerSecond    Vore API限流速率
-     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
-     *
-     * @return IP查询引擎
-     *
-     * @throws IOException 数据库文件读取异常
-     */
-    public static IpQueryEngine createWithAllSources(
-        String ip2regionDbPath,
-        double taobaoPermitsPerSecond,
-        double ipApiCoPermitsPerSecond,
-        double pacificPermitsPerSecond,
-        double ip9PermitsPerSecond,
-        double ipInfoPermitsPerSecond,
-        double xxlbPermitsPerSecond,
-        double vorePermitsPerSecond,
-        double ipMoePermitsPerSecond) throws IOException {
-        return createWithAllSources(ip2regionDbPath, taobaoPermitsPerSecond, ipApiCoPermitsPerSecond,
-            pacificPermitsPerSecond, ip9PermitsPerSecond, ipInfoPermitsPerSecond, xxlbPermitsPerSecond, vorePermitsPerSecond, ipMoePermitsPerSecond, null);
-    }
 
     /**
-     * 创建完整的混合数据源查询引擎（本地+所有免费API）
+     * 尝试从资源目录加载ip2region数据源
+     * 该方法会检查classpath中是否存在ip2region依赖，并尝试从资源目录加载IPv4和IPv6的数据库文件
+     * 支持从jar包内和文件系统两种方式加载数据库文件
      *
-     * @param ip2regionDbPath         ip2region数据库文件路径
-     * @param taobaoPermitsPerSecond  淘宝API限流速率
-     * @param ipApiCoPermitsPerSecond ipapi.co限流速率
-     * @param pacificPermitsPerSecond Pacific网络API限流速率
-     * @param ip9PermitsPerSecond     IP9 API限流速率
-     * @param ipInfoPermitsPerSecond  IPInfo API限流速率
-     * @param xxlbPermitsPerSecond    XXLB API限流速率
-     * @param vorePermitsPerSecond    Vore API限流速率
-     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
-     * @param httpRequestHandler      HTTP请求处理器
-     *
-     * @return IP查询引擎
-     *
-     * @throws IOException 数据库文件读取异常
+     * @return 包含ip2region解析器的Optional，如果加载失败或缺少依赖则返回empty
      */
-    public static IpQueryEngine createWithAllSources(
-        String ip2regionDbPath,
-        double taobaoPermitsPerSecond,
-        double ipApiCoPermitsPerSecond,
-        double pacificPermitsPerSecond,
-        double ip9PermitsPerSecond,
-        double ipInfoPermitsPerSecond,
-        double xxlbPermitsPerSecond,
-        double vorePermitsPerSecond,
-        double ipMoePermitsPerSecond,
-        HttpRequestHandler httpRequestHandler) throws IOException {
+    public static Optional<IpSource> tryLoadIp2RegionSource() {
+        if (LOAD_IP2REGION_CLASS == null) {
+            synchronized (LocalIp2RegionResolver.class) {
+                if (LOAD_IP2REGION_CLASS == null) {
+                    try {
+                        Class.forName("org.lionsoul.ip2region.Ip2Region");
+                        LOAD_IP2REGION_CLASS = true;
+                    } catch (ClassNotFoundException e) {
+                        LOAD_IP2REGION_CLASS = false;
+                    }
+                }
+            }
+        }
+        if (!LOAD_IP2REGION_CLASS) {
+            return Optional.empty();
+        }
 
-        // 创建本地数据源
-        org.lionsoul.ip2region.xdb.Searcher ip2regionSearcher;
-        LocalIp2RegionResolver localSource;
+        // 尝试从资源目录加载ip2region数据库文件
         try {
-            Class.forName("org.lionsoul.ip2region.xdb.Searcher");
-            ip2regionSearcher = org.lionsoul.ip2region.xdb.Searcher.newWithBuffer(
-                    org.lionsoul.ip2region.xdb.Searcher.loadContentFromFile(ip2regionDbPath));
-            localSource = new LocalIp2RegionResolver(ip2regionSearcher, "LocalIp2Region", 100);
-        } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            throw new RuntimeException("缺少ip2region依赖，请添加相关依赖后再使用此功能", e);
+            // 首先尝试从当前项目的resources目录加载
+            java.net.URL v4ResourceUrl = IpQueryEngineFactory.class.getClassLoader()
+                .getResource(RESOURCES_DIR + File.pathSeparator + IP2REGION_DB_V4_FILE);
+            java.net.URL v6ResourceUrl = IpQueryEngineFactory.class.getClassLoader()
+                .getResource(RESOURCES_DIR + File.pathSeparator + IP2REGION_DB_V6_FILE);
+            if (v4ResourceUrl == null && v6ResourceUrl == null) {
+                return Optional.empty();
+            }
+            String v4DbFile = null;
+            String v6DbFile = null;
+            if (v4ResourceUrl != null) {
+                // 如果在jar包内找到了文件
+                if ("jar".equals(v4ResourceUrl.getProtocol())) {
+                    // 从jar包中提取文件到临时目录
+                    java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(TEMP_DIR + File.pathSeparator + "ip2region");
+                    java.nio.file.Path tempFile = tempDir.resolve("ip2region_v4.xdb");
+                    try (java.io.InputStream is = v4ResourceUrl.openStream()) {
+                        java.nio.file.Files.copy(is, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    v4DbFile = tempFile.toString();
+                }
+                // 如果是文件系统中的文件
+                else if ("file".equals(v4ResourceUrl.getProtocol())) {
+                    v4DbFile = v4ResourceUrl.toURI().getPath();
+                }
+            }
+            if (v6ResourceUrl != null) {
+                // 如果在jar包内找到了文件
+                if ("jar".equals(v6ResourceUrl.getProtocol())) {
+                    // 从jar包中提取文件到临时目录
+                    java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(TEMP_DIR + File.pathSeparator + "ip2region");
+                    java.nio.file.Path tempFile = tempDir.resolve("ip2region_v6.xdb");
+                    try (java.io.InputStream is = v6ResourceUrl.openStream()) {
+                        java.nio.file.Files.copy(is, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } else if ("file".equals(v6ResourceUrl.getProtocol())) {
+                    v6DbFile = v6ResourceUrl.toURI().getPath();
+                }
+            }
+            if (v4DbFile != null || v6DbFile != null) {
+                LocalIp2RegionResolver resolver = new LocalIp2RegionResolver(v4DbFile, v6DbFile, true, false, "IP2Region", 95);
+                return Optional.of(resolver);
+            }
+        } catch (Exception e) {
+            // 忽略异常，返回empty
         }
+        return Optional.empty();
+    }
 
-        // 创建API数据源
-        TaobaoIpResolver taobaoSource = httpRequestHandler == null ?
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90) :
-            new TaobaoIpResolver(taobaoPermitsPerSecond, "TaobaoAPI", 90, httpRequestHandler);
 
-        IpApiCoResolver ipApiCoSource = httpRequestHandler == null ?
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80) :
-            new IpApiCoResolver(ipApiCoPermitsPerSecond, "IpApiCo", 80, httpRequestHandler);
-
-        PacificIpResolver pacificSource = httpRequestHandler == null ?
-            new PacificIpResolver(pacificPermitsPerSecond, "Pacific", 85) :
-            new PacificIpResolver(pacificPermitsPerSecond, "Pacific", 85, httpRequestHandler);
-
-        Ip9Resolver ip9Source = httpRequestHandler == null ?
-            new Ip9Resolver(ip9PermitsPerSecond, "IP9", 75) :
-            new Ip9Resolver(ip9PermitsPerSecond, "IP9", 75, httpRequestHandler);
-
-        IpInfoResolver ipInfoSource = httpRequestHandler == null ?
-            new IpInfoResolver(ipInfoPermitsPerSecond, "IPInfo", 70) :
-            new IpInfoResolver(ipInfoPermitsPerSecond, "IPInfo", 70, httpRequestHandler);
-
-        XxlbResolver xxlbSource = httpRequestHandler == null ?
-            new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70) :
-            new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70, httpRequestHandler);
-
-        VoreResolver voreSource = httpRequestHandler == null ?
-            new VoreResolver("Vore", 75, vorePermitsPerSecond, null) :
-            new VoreResolver("Vore", 75, vorePermitsPerSecond, httpRequestHandler);
-
-        IpMoeResolver ipMoeSource = httpRequestHandler == null ?
-            new IpMoeResolver("IP-MOE", 75, ipMoePermitsPerSecond, null) :
-            new IpMoeResolver("IP-MOE", 75, ipMoePermitsPerSecond, httpRequestHandler);
-
+    /**
+     * 尝试从资源目录加载所有可用的本地数据源
+     * 包括GeoIP2和ip2region数据库
+     *
+     * @return 可用的本地数据源列表
+     */
+    public static List<IpSource> tryLoadLocalSources() {
         List<IpSource> sources = new ArrayList<>();
-        sources.add(localSource);
+        // 尝试加载GeoIP2数据源
+        Optional<IpSource> geoIpSource = tryLoadGeoIpSource();
+        geoIpSource.ifPresent(sources::add);
+
+        // 尝试加载ip2region数据源
+        Optional<IpSource> ip2RegionSource = tryLoadIp2RegionSource();
+        ip2RegionSource.ifPresent(sources::add);
+        return sources;
+    }
+
+
+    /**
+     * 加载免费API数据源列表
+     * 根据speedPriority参数决定数据源的权重分配策略
+     *
+     * @param speedPriority 是否优先速度，true时高权重数据源权重降低以实现更均匀的请求分布
+     *
+     * @return 免费API数据源列表
+     */
+    public static List<IpSource> loadFreeApiSources(boolean speedPriority) {
+        return loadFreeApiSources(new DefaultHttpRequestHandler(), speedPriority);
+    }
+
+
+    /**
+     * 加载免费API数据源列表
+     * 根据speedPriority参数决定数据源的权重分配策略
+     *
+     * @param httpRequestHandler HTTP请求处理器
+     * @param speedPriority      是否优先速度，true时高权重数据源权重降低以实现更均匀的请求分布
+     *
+     * @return 免费API数据源列表
+     */
+    public static List<IpSource> loadFreeApiSources(HttpRequestHandler httpRequestHandler, boolean speedPriority) {
+        TaobaoIpResolver taobaoSource = new TaobaoIpResolver(3, "TaobaoAPI", speedPriority ? 50 : 90, httpRequestHandler);
+        IpApiCoResolver ipApiCoSource = new IpApiCoResolver(2, "IpApiCo", speedPriority ? 40 : 80, httpRequestHandler);
+        Ip9Resolver ip9Source = new Ip9Resolver(1, "IP9", speedPriority ? 25 : 65, httpRequestHandler);
+        IpInfoResolver ipInfoSource = new IpInfoResolver(1, "IPInfo", speedPriority ? 20 : 60, httpRequestHandler);
+        XxlbResolver xxlbSource = new XxlbResolver(1, "XXLB", speedPriority ? 15 : 55, httpRequestHandler);
+        VoreResolver voreSource = new VoreResolver(1, "Vore", speedPriority ? 10 : 50, httpRequestHandler);
+        IpMoeResolver ipMoeSource = new IpMoeResolver(1, "IP-MOE", speedPriority ? 10 : 50, httpRequestHandler);
+        PacificIpResolver pacificSource = new PacificIpResolver(1, "Pacific", speedPriority ? 10 : 50, httpRequestHandler);
+        List<IpSource> sources = new ArrayList<>();
         sources.add(taobaoSource);
         sources.add(ipApiCoSource);
-        sources.add(pacificSource);
         sources.add(ip9Source);
         sources.add(ipInfoSource);
         sources.add(xxlbSource);
         sources.add(voreSource);
         sources.add(ipMoeSource);
-
-        return new IpQueryEngine(sources);
+        sources.add(pacificSource);
+        return sources;
     }
 
+
     /**
-     * 创建包含GeoIP2本地数据源的查询引擎
+     * 创建仅包含本地数据源的IP查询引擎
+     * 该方法会尝试自动加载所有可用的本地数据源（如GeoIP2和ip2region），并创建相应的查询引擎
      *
-     * @param dbFile           GeoIP2数据库文件
-     * @param permitsPerSecond 限流速率（每秒请求数）
-     *
-     * @return IP查询引擎
-     *
-     * @throws IOException 数据库文件读取异常
+     * @param maxCacheSize      最大缓存数量，如果为null则使用默认配置
+     * @param expireAfterWrite  缓存项写入后多久过期，如果为null则使用默认配置
+     * @param expireAfterAccess 缓存项最后访问后多久过期，如果为null则使用默认配置
+     * @return {@link IpQueryEngine } IP查询引擎实例
+     * @throws RuntimeException 当没有找到可用的数据源时抛出异常
      */
-    public static IpQueryEngine createWithGeoIP2Source(File dbFile, double permitsPerSecond) throws IOException {
-        try {
-            Class.forName("com.maxmind.geoip2.DatabaseReader");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException("缺少GeoIP2依赖，请添加相关依赖后再使用此功能", e);
+    public static IpQueryEngine createLocalEngine(Integer maxCacheSize, Duration expireAfterWrite, Duration expireAfterAccess) {
+        List<IpSource> sources = tryLoadLocalSources();
+        if (sources.isEmpty()) {
+            throw new RuntimeException("No available data source found.");
         }
-
-        try {
-            com.maxmind.geoip2.DatabaseReader reader = new com.maxmind.geoip2.DatabaseReader.Builder(dbFile).build();
-            GeoIP2Resolver geoIP2Source = new GeoIP2Resolver(reader, "GeoIP2", 100);
-            List<IpSource> sources = new ArrayList<>();
-            sources.add(geoIP2Source);
-            return new IpQueryEngine(sources);
-        } catch (NoClassDefFoundError e) {
-            throw new RuntimeException("缺少GeoIP2依赖，请添加相关依赖后再使用此功能", e);
+        if (maxCacheSize == null || expireAfterWrite == null || expireAfterAccess == null) {
+            return createFromSources(sources);
         }
+        return createFromSources(sources, maxCacheSize, expireAfterWrite, expireAfterAccess);
     }
 
     /**
-     * 创建包含GeoIP2本地数据源的查询引擎
+     * 创建仅包含免费API数据源的IP查询引擎
+     * 该方法会加载所有预定义的免费API数据源，并创建相应的查询引擎
      *
-     * @param reader           GeoIP2数据库读取器
-     * @param permitsPerSecond 限流速率（每秒请求数）
-     *
-     * @return IP查询引擎
-     *
-     * @throws IOException 数据库文件读取异常
+     * @param maxCacheSize      最大缓存数量，如果为null则使用默认配置
+     * @param expireAfterWrite  缓存项写入后多久过期，如果为null则使用默认配置
+     * @param expireAfterAccess 缓存项最后访问后多久过期，如果为null则使用默认配置
+     * @return {@link IpQueryEngine } IP查询引擎实例
+     * @throws RuntimeException 当没有找到可用的数据源时抛出异常
      */
-    public static IpQueryEngine createWithGeoIP2Source(com.maxmind.geoip2.DatabaseReader reader, double permitsPerSecond) throws IOException {
-        try {
-            Class.forName("com.maxmind.geoip2.DatabaseReader");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException("缺少GeoIP2依赖，请添加相关依赖后再使用此功能", e);
+    public static IpQueryEngine createFreeApiEngine(Integer maxCacheSize, Duration expireAfterWrite, Duration expireAfterAccess) {
+        List<IpSource> sources = loadFreeApiSources(false);
+        if (sources.isEmpty()) {
+            throw new RuntimeException("No available data source found.");
         }
-
-        try {
-            GeoIP2Resolver geoIP2Source = new GeoIP2Resolver(reader, "GeoIP2", 100);
-            List<IpSource> sources = new ArrayList<>();
-            sources.add(geoIP2Source);
-            return new IpQueryEngine(sources);
-        } catch (NoClassDefFoundError e) {
-            throw new RuntimeException("缺少GeoIP2依赖，请添加相关依赖后再使用此功能", e);
+        if (maxCacheSize == null || expireAfterWrite == null || expireAfterAccess == null) {
+            return createFromSources(sources);
         }
+        return createFromSources(sources, maxCacheSize, expireAfterWrite, expireAfterAccess);
     }
 
     /**
-     * 创建自定义数据源的查询引擎
+     * 创建包含所有数据源的IP查询引擎
+     * 该方法会加载所有本地数据源和免费API数据源，并创建相应的查询引擎
+     *
+     * @param speedPriority     是否优先考虑速度，true时会调整API数据源的权重分配
+     * @param maxCacheSize      最大缓存数量，如果为null则使用默认配置
+     * @param expireAfterWrite  缓存项写入后多久过期，如果为null则使用默认配置
+     * @param expireAfterAccess 缓存项最后访问后多久过期，如果为null则使用默认配置
+     *
+     * @return {@link IpQueryEngine } IP查询引擎实例
+     */
+    public static IpQueryEngine createAllSourceEngine(boolean speedPriority, Integer maxCacheSize, Duration expireAfterWrite, Duration expireAfterAccess) {
+        List<IpSource> sources = tryLoadLocalSources();
+        sources.addAll(loadFreeApiSources(speedPriority));
+        if (sources.isEmpty()) {
+            throw new RuntimeException("No available data source found.");
+        }
+        if (maxCacheSize == null || expireAfterWrite == null || expireAfterAccess == null) {
+            return createFromSources(sources);
+        }
+        return createFromSources(sources, maxCacheSize, expireAfterWrite, expireAfterAccess);
+    }
+
+
+    /**
+     * 创建数据源的查询引擎 (默认策略)
      *
      * @param sources 数据源列表
      *
      * @return IP查询引擎
      */
-    public static IpQueryEngine createWithCustomSources(List<IpSource> sources) {
+    public static IpQueryEngine createFromSources(List<IpSource> sources) {
         return new IpQueryEngine(sources);
+    }
+
+
+    /**
+     * 创建数据源的查询引擎
+     *
+     * @param sources           数据源列表
+     * @param maxCacheSize      最大缓存数量
+     * @param expireAfterWrite  缓存项写入后多少秒过期
+     * @param expireAfterAccess 缓存项最后访问后多少秒过期
+     *
+     * @return IP查询引擎
+     */
+    public static IpQueryEngine createFromSources(List<IpSource> sources, int maxCacheSize, Duration expireAfterWrite, Duration expireAfterAccess) {
+        return new IpQueryEngine(sources, new WeightedLoadBalancer(), new LocalFirstFallbackStrategy(), maxCacheSize, expireAfterWrite, expireAfterAccess);
     }
 }
