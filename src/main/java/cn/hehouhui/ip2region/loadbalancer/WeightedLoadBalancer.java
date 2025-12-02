@@ -20,6 +20,14 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class WeightedLoadBalancer implements LoadBalancer {
 
+
+    /**
+     * 从数据源列表中根据加权负载均衡算法选择最优的数据源
+     * 算法综合考虑权重、成功率、执行次数和可用性四个维度
+     *
+     * @param sources 数据源列表
+     * @return 选中的数据源，如果列表为空则返回null
+     */
     @Override
     public IpSource select(List<IpSource> sources) {
         if (sources == null || sources.isEmpty()) {

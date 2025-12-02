@@ -2,7 +2,9 @@ package cn.hehouhui.ip2region.resolver;
 
 import cn.hehouhui.ip2region.IpInfo;
 import cn.hehouhui.ip2region.core.AbstractIpSource;
-import org.lionsoul.ip2region.xdb.Searcher;
+import org.lionsoul.ip2region.Config;
+import org.lionsoul.ip2region.Ip2Region;
+import org.lionsoul.ip2region.xdb.XdbException;
 
 import java.io.IOException;
 
@@ -14,13 +16,14 @@ import java.io.IOException;
  */
 public class LocalIp2RegionResolver extends AbstractIpSource {
 
-    private final Searcher searcher;
+    private final Ip2Region searcher;
 
 
     /**
      * 构造函数
      *
-     * @param dbFile        ip2region数据库文件路径
+     * @param v4DbFile      ip2region数据库ipv4文件路径
+     * @param v6DbFile      ip2region数据库ipv6文件路径
      * @param isVectorIndex 是否使用向量索引
      * @param isBuffer      是否使用缓存
      * @param name          解析器名称
@@ -28,15 +31,28 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
      *
      * @throws IOException IO异常
      */
-    public LocalIp2RegionResolver(String dbFile, boolean isVectorIndex, boolean isBuffer, String name, int weight) throws IOException {
+    public LocalIp2RegionResolver(String v4DbFile, String v6DbFile, boolean isVectorIndex, boolean isBuffer, String name, int weight) throws IOException, XdbException {
         super(name, weight);
+        Config ipv4Config;
+        Config ipv6Config = null;
         if (isBuffer) {
-            this.searcher = Searcher.newWithBuffer(Searcher.loadContentFromFile(dbFile));
+            ipv4Config = Config.custom().setCachePolicy(Config.BufferCache).setXdbPath(v4DbFile).setSeachers(15).asV4();
+            if (v6DbFile != null && !v6DbFile.isEmpty()) {
+                ipv6Config = Config.custom().setCachePolicy(Config.BufferCache).setXdbPath(v6DbFile).setSeachers(15).asV6();
+            }
         } else if (isVectorIndex) {
-            this.searcher = Searcher.newWithVectorIndex(dbFile, Searcher.loadVectorIndexFromFile(dbFile));
+            ipv4Config = Config.custom().setCachePolicy(Config.VIndexCache).setXdbPath(v4DbFile).setSeachers(15).asV4();
+            if (v6DbFile != null && !v6DbFile.isEmpty()) {
+                ipv6Config = Config.custom().setCachePolicy(Config.VIndexCache).setXdbPath(v6DbFile).setSeachers(15).asV6();
+            }
         } else {
-            this.searcher = Searcher.newWithFileOnly(dbFile);
+            ipv4Config = Config.custom().setCachePolicy(Config.NoCache).setXdbPath(v4DbFile).setSeachers(15).asV4();
+            if (v6DbFile != null && !v6DbFile.isEmpty()) {
+                ipv6Config = Config.custom().setCachePolicy(Config.NoCache).setXdbPath(v6DbFile).setSeachers(15).asV6();
+            }
         }
+        this.searcher = Ip2Region.create(ipv4Config, ipv6Config);
+
     }
 
 
@@ -47,7 +63,7 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
      * @param name     解析器名称
      * @param weight   解析器权重
      */
-    public LocalIp2RegionResolver(Searcher searcher, String name, int weight) {
+    public LocalIp2RegionResolver(Ip2Region searcher, String name, int weight) {
         super(name, weight);
         this.searcher = searcher;
     }
@@ -58,21 +74,7 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
         try {
             String region = searcher.search(ip);
             updateSuccessStats();
-            IpInfo ipInfo = IpInfo.fromString(ip, region);
-
-            // 本地数据库不提供新增字段信息，但为保持一致性保留默认值
-            // ipInfo.setAsn(null);
-            // ipInfo.setAsnOwner(null);
-            // ipInfo.setLongitude(null);
-            // ipInfo.setLatitude(null);
-            // ipInfo.setTimezone(null);
-            // ipInfo.setUsageType(null);
-            // ipInfo.setNativeIp(null);
-            // ipInfo.setRisk(null);
-            // ipInfo.setProxy(null);
-            // ipInfo.setCrawlerName(null);
-
-            return ipInfo;
+            return IpInfo.fromString(ip, region);
         } catch (Exception e) {
             updateFailureStats();
             throw e;
@@ -90,7 +92,7 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
      *
      * @throws IOException IO异常
      */
-    public void close() throws IOException {
+    public void close() throws IOException, InterruptedException {
         if (searcher != null) {
             searcher.close();
         }

@@ -29,7 +29,11 @@ public abstract class AbstractIpSource implements IpSource {
      * @param weight 数据源权重
      */
     public AbstractIpSource(String name, int weight) {
-        this.name = name;
+        if (name == null || name.isEmpty()) {
+            this.name = this.getClass().getSimpleName().toLowerCase().replace("resolver", "");
+        } else {
+            this.name = name;
+        }
         this.weight = weight;
     }
 
