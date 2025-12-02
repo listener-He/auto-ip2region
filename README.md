@@ -33,6 +33,7 @@ Auto IP2Region 是一个智能化的IP地址地理信息解析库，它结合了
 
 ### ⚡ 高性能
 - 基于[ip2region](https://github.com/lionsoul2014/ip2region)本地数据库，查询速度可达**微秒级**
+- 基于[GeoLite2](https://dev.maxmind.com/geoip/geoip2/geolite2/) 本地数据库，查询速度可达**毫秒级**
 - 使用负载均衡算法，支撑数据准确性
 - 内置Guava Cache缓存机制，热点数据访问性能提升**80%+**
 
@@ -50,10 +51,12 @@ Auto IP2Region 是一个智能化的IP地址地理信息解析库，它结合了
 | 本地数据库 | GeoIP2 | 100  | MaxMind GeoIP2数据库 |
 | 免费API | 淘宝IP库 | 90   | 国内IP准确率高 |
 | 免费API | ipapi.co | 80   | 国际IP覆盖广 |
-| 免费API | 太平洋网络 | 85   | 中等权重 |
-| 免费API | IP9 | 75   | 备用数据源 |
-| 免费API | IPInfo | 70   | 附加信息丰富 |
-| 免费API | XXLB | 70   | 备用数据源 |
+| 免费API | 太平洋网络 | 50   | 太平洋网络API |
+| 免费API | IP9 | 50   | 备用数据源 |
+| 免费API | IPInfo | 50   | 附加信息丰富 |
+| 免费API | XXLB | 50   | 备用数据源 |
+| 免费API | Vore | 50   | 沃云API |
+| 免费API | IP-MOE | 50   | IP-MOE API |
 
 ### 🛡️ 自动故障转移
 - 实时监控各数据源健康状况
@@ -80,12 +83,14 @@ Auto IP2Region 是一个智能化的IP地址地理信息解析库，它结合了
 
 | 数据源 | 限流速率(QPS) | 权重 | 名称 |
 |--------|---------------|------|------|
-| 淘宝IP库 | 100 | 90 | TaobaoAPI |
-| ipapi.co | 100 | 80 | IpApiCo |
-| 太平洋网络 | 100 | 85 | Pacific |
-| IP9 | 100 | 75 | IP9 |
-| IPInfo | 100 | 70 | IPInfo |
-| XXLB | 100 | 70 | XXLB |
+| 淘宝IP库 | 3 | 90 | TaobaoAPI |
+| ipapi.co | 2 | 80 | IpApiCo |
+| 太平洋网络 | 1 | 50 | Pacific |
+| IP9 | 1 | 50 | IP9 |
+| IPInfo | 1 | 50 | IPInfo |
+| XXLB | 1 | 50 | XXLB |
+| Vore | 1 | 50 | Vore |
+| IP-MOE | 1 | 50 | IP-MOE |
 
 ## 🧠 负载均衡算法详解
 
@@ -93,24 +98,24 @@ Auto IP2Region采用先进的加权负载均衡算法，综合考虑多个维度
 
 ### 算法公式
 
-```
+```text
 最终得分 = 权重得分 × 0.4 + 成功率得分 × 0.25 + 执行次数得分 × 0.2 + 可用性得分 × 0.15
 ```
 
 ### 各维度计算方式
 
 #### 1. 权重得分 (Weight Score)
-```
+```text
 权重得分 = 数据源权重 / 所有可用数据源中的最高权重
 ```
 
 #### 2. 成功率得分 (Success Rate Score)
-```
+```text
 成功率得分 = 数据源历史成功率 (0-1之间)
 ```
 
 #### 3. 执行次数得分 (Execution Count Score)
-```
+```text
 执行次数得分 = 1 - (当前数据源执行次数 / 所有可用数据源的最大执行次数)
 ```
 
@@ -205,17 +210,21 @@ System.out.println("缓存大小: " + metrics.getCacheSize());
 
 ### 📥 下载数据库文件
 
-使用本库前，需要下载相应的数据库文件：
+使用本库前，需要下载相应的数据库文件
 
-1. **ip2region数据库**（可选）：
-   - 下载地址：[https://github.com/lionsoul2014/ip2region/tree/master/data](https://github.com/lionsoul2014/ip2region/tree/master/data)
-   - 文件名：`ip2region.xdb`
+**GeoIP2数据库可以从MaxMind官网免费获取**：
 
-2. **GeoIP2数据库**（可选）：
-   - 下载地址：[https://dev.maxmind.com/geoip/geolite2-free-geolocation-data](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
-   - 文件名：`GeoLite2-City.mmdb`
+1. 访问 [MaxMind GeoLite2](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
+2. 注册账号并登录
+3. 下载 GeoLite2 City 数据库
+4. 解压获得 `GeoLite2-City.mmdb` 文件
 
-> 注意：ip2region和GeoIP2数据库为可选依赖，只有在使用对应的本地解析器时才需要添加相关依赖和数据库文件。
+**ip2region从github仓库下载**
+- 下载地址：[https://github.com/lionsoul2014/ip2region/tree/master/data](https://github.com/lionsoul2014/ip2region/tree/master/data)
+- IP_V4 文件名：`ip2region_v4.xdb`
+- IP_V6 文件名：`ip2region_v6.xdb`
+
+> 注意：ip2region和GeoIP2数据库为可选依赖，只有在使用对应的本地解析器时才需要添加相关依赖和数据库文件 数据库需要定期更新以保证准确性。
 
 ### 💡 基本用法
 
@@ -223,10 +232,7 @@ System.out.println("缓存大小: " + metrics.getCacheSize());
 
 ```java
 // 创建只包含本地ip2region数据源的查询引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithLocalSource(
-    "path/to/ip2region.xdb",  // 数据库文件路径
-    1000                      // 限流速率（每秒1000次查询）
-);
+IpQueryEngine engine = IpQueryEngineFactory.createLocalEngine(null, null, null);
 
 // 查询IP信息
 try {
@@ -241,10 +247,7 @@ try {
 
 ```java
 // 创建只包含GeoIP2数据源的查询引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithGeoIP2Source(
-    new File("path/to/GeoLite2-City.mmdb"),  // GeoIP2数据库文件
-    1000                                     // 限流速率（每秒1000次查询）
-);
+IpQueryEngine engine = IpQueryEngineFactory.createLocalEngine(null, null, null);
 
 // 查询IP信息
 try {
@@ -281,16 +284,7 @@ if (!localSources.isEmpty()) {
 
 ```java
 // 创建包含所有免费API数据源的查询引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithAllFreeApiSources(
-    100,  // 淘宝API限流速率
-    100,  // ipapi.co限流速率
-    100,  // Pacific网络API限流速率
-    100,  // IP9 API限流速率
-    100,  // IPInfo API限流速率
-    100,  // XXLB API限流速率
-    100,  // Vore API限流速率
-    100   // IP-MOE API限流速率
-);
+IpQueryEngine engine = IpQueryEngineFactory.createFreeApiEngine(null, null, null);
 
 // 查询IP信息
 try {
@@ -305,18 +299,7 @@ try {
 
 ```java
 // 创建混合数据源的查询引擎（本地+所有免费API）
-IpQueryEngine engine = IpQueryEngineFactory.createWithAllSources(
-    "path/to/ip2region.xdb",  // ip2region数据库文件路径
-    1000,                     // 本地数据源限流速率
-    100,                      // 淘宝API限流速率
-    100,                      // ipapi.co限流速率
-    100,                      // Pacific网络API限流速率
-    100,                      // IP9 API限流速率
-    100,                      // IPInfo API限流速率
-    100,                      // XXLB API限流速率
-    100,                      // Vore API限流速率
-    100                       // IP-MOE API限流速率
-);
+IpQueryEngine engine = IpQueryEngineFactory.createAllSourceEngine(false, null, null, null);
 
 // 查询IP信息
 try {
@@ -334,17 +317,8 @@ try {
 HttpRequestHandler customHandler = new CustomHttpRequestHandler();
 
 // 创建包含所有免费API数据源的查询引擎，使用自定义HTTP请求处理器
-IpQueryEngine engine = IpQueryEngineFactory.createWithAllFreeApiSources(
-    100,  // 淘宝API限流速率
-    100,  // ipapi.co限流速率
-    100,  // Pacific网络API限流速率
-    100,  // IP9 API限流速率
-    100,  // IPInfo API限流速率
-    100,  // XXLB API限流速率
-    100,  // Vore API限流速率
-    100,  // IP-MOE API限流速率
-    customHandler // 自定义HTTP请求处理器
-);
+List<IpSource> sources = IpQueryEngineFactory.loadFreeApiSources(customHandler, false);
+IpQueryEngine engine = IpQueryEngineFactory.createFromSources(sources);
 
 // 查询IP信息
 try {
@@ -360,11 +334,11 @@ try {
 ```java
 // 创建自定义数据源列表
 List<IpSource> sources = new ArrayList<>();
-sources.add(new LocalIp2RegionResolver(searcher, 1000, "LocalResolver", 100));
-sources.add(new TaobaoIpResolver(100, "TaobaoResolver", 90));
+sources.add(new LocalIp2RegionResolver(searcher, "LocalResolver", 100));
+sources.add(new TaobaoIpResolver(3, "TaobaoResolver", 90));
 
 // 创建查询引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithCustomSources(sources);
+IpQueryEngine engine = IpQueryEngineFactory.createFromSources(sources);
 
 // 查询IP信息
 try {
@@ -377,15 +351,14 @@ try {
 
 ## 📊 性能对比
 
-经过测试，在相同环境下与其他解决方案的性能对比如下：
+经过测试，在相同环境下不同方案的性能对比如下：
 
-| 方案 | 平均响应时间 | 并发处理能力 | 准确率 |
-|------|------------|------------|-------|
-| 纯API调用 | 320ms | 1,000 QPS | 92% |
-| 纯本地数据库 | 0.05ms | 100,000 QPS | 95% |
-| Auto IP2Region | 0.1ms | 1,000,000 QPS | 98% |
+| 方案          | 平均响应时间 | 并发处理能力   | 准确率 |
+|-------------|------------|----------|-------|
+| 纯API调用      | 320ms | 2,0 QPS  | 92% |
+| 纯本地数据库      | 0.05ms | 200 QPS  | 95% |
+| API + 本地数据库 | 0.1ms | 2,00 QPS | 98% |
 
-> 测试环境：Intel i7-9750H CPU @ 2.60GHz, 16GB RAM, Windows 11, Java 17
 
 ## 🔌 扩展指南
 

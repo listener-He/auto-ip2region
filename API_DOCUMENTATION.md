@@ -1,3 +1,4 @@
+API_DOCUMENTATION.md
 # Auto IP2Region API 文档
 
 <div align="center">
@@ -12,7 +13,7 @@
 Auto IP2Region 是一款轻量级IP地理信息解析框架，提供**统一查询接口**，整合本地ip2region数据库与多免费在线API，通过智能负载均衡和自动故障转移保障服务高可用。
 
 核心特性：
-- 多数据源兼容（本地库+6+免费API）
+- 多数据源兼容（本地库+9免费API）
 - 动态负载均衡（权重/成功率/可用性综合评估）
 - 自动故障转移（本地优先降级策略）
 - 热点数据缓存（Guava Cache）
@@ -93,14 +94,14 @@ IP地理信息载体，封装解析结果
 
 | 方法 | 用途 |
 |------|------|
-| `createWithLocalSource(...)` | 仅本地ip2region数据源 |
-| `createWithGeoIP2Source(...)` | 仅本地GeoIP2数据源 |
-| `createWithFreeApiSources(...)` | 仅免费API数据源 |
-| `createWithMixedSources(...)` | 本地+API混合数据源 |
-| `createWithCustomSources(...)` | 自定义数据源 |
+| `createLocalEngine(...)` | 仅本地数据源 |
+| `createFreeApiEngine(...)` | 仅免费API数据源 |
+| `createAllSourceEngine(...)` | 本地+API混合数据源 |
+| `createFromSources(...)` | 自定义数据源 |
 | `tryLoadLocalSources()` | 自动从资源目录加载本地数据源 |
 | `tryLoadGeoIpSource()` | 尝试加载GeoIP2数据源 |
 | `tryLoadIp2RegionSource()` | 尝试加载ip2region数据源 |
+| `loadFreeApiSources(...)` | 加载免费API数据源 |
 
 ### 2. 核心接口
 
@@ -158,16 +159,18 @@ IP数据源抽象基类，提供统计/限流能力
 - `LocalFirstFallbackStrategy`：本地优先降级策略
 
 #### 数据源实现
-| 实现类 | 数据源类型 | 权重 |
-|--------|------------|------|
-| `LocalIp2RegionResolver` | 本地ip2region库 | 100 |
-| `GeoIP2Resolver` | 本地GeoIP2库 | 100 |
-| `TaobaoIpResolver` | 淘宝API | 90 |
-| `PacificIpResolver` | Pacific网络API | 85 |
-| `IpApiCoResolver` | ipapi.co API | 80 |
-| `Ip9Resolver` | IP9 API | 75 |
-| `IpInfoResolver` | IPInfo API | 70 |
-| `XxlbResolver` | XXLB API | 70 |
+| 实现类 | 数据源类型 | 默认QPS | 默认权重 |
+|--------|------------|-------|----------|
+| `LocalIp2RegionResolver` | 本地ip2region库 | x     | 100 |
+| `GeoIP2Resolver` | 本地GeoIP2库 | x     | 100 |
+| `TaobaoIpResolver` | 淘宝API | 3     | 90 |
+| `PacificIpResolver` | Pacific网络API | 1     | 50 |
+| `IpApiCoResolver` | ipapi.co API | 2     | 80 |
+| `Ip9Resolver` | IP9 API | 1     | 50 |
+| `IpInfoResolver` | IPInfo API | 1     | 50 |
+| `XxlbResolver` | XXLB API | 1     | 50 |
+| `VoreResolver` | Vore API | 1     | 50 |
+| `IpMoeResolver` | IP-MOE API | 1     | 50 |
 
 #### HTTP实现
 - `DefaultHttpRequestHandler`：基于JDK HttpClient的默认实现
@@ -221,16 +224,8 @@ score = 权重×0.4 + 成功率×0.25 + 负载均衡因子×0.2 + 可用性×0.1
 ### 1. 使用GeoIP2本地数据库
 
 ```java
-// 创建GeoIP2解析器
-File geoIP2DbFile = new File("path/to/GeoLite2-City.mmdb");
-GeoIP2Resolver geoIP2Resolver = new GeoIP2Resolver(geoIP2DbFile, "GeoIP2", 100);
-
-// 或者使用DatabaseReader直接创建
-DatabaseReader reader = new DatabaseReader.Builder(geoIP2DbFile).build();
-GeoIP2Resolver geoIP2Resolver = new GeoIP2Resolver(reader, "GeoIP2", 100);
-
-// 使用工厂方法创建引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithGeoIP2Source(geoIP2DbFile, 1000);
+// 使用工厂方法创建引擎（自动加载本地数据源）
+IpQueryEngine engine = IpQueryEngineFactory.createLocalEngine(null, null, null);
 
 // 查询IP信息
 try {
@@ -278,19 +273,18 @@ if (!localSources.isEmpty()) {
 List<IpSource> sources = new ArrayList<>();
 
 // 添加ip2region解析器
-Searcher ip2regionSearcher = Searcher.newWithBuffer(Searcher.loadContentFromFile("path/to/ip2region.xdb"));
-LocalIp2RegionResolver ip2regionResolver = new LocalIp2RegionResolver(ip2regionSearcher, "ip2region", 100);
+LocalIp2RegionResolver ip2regionResolver = new LocalIp2RegionResolver(v4DbFilePath, v6DbFilePath, true, false, "ip2region", 100);
 
 // 添加GeoIP2解析器
 File geoIP2DbFile = new File("path/to/GeoLite2-City.mmdb");
-GeoIP2Resolver geoIP2Resolver = new GeoIP2Resolver(geoIP2DbFile, "GeoIP2", 100);
+GeoIP2Resolver geoIP2Resolver = new GeoIP2Resolver(geoIP2DbFile, Arrays.asList("zh-CN", "en"), "GeoIP2", 100);
 
 // 添加到数据源列表
 sources.add(ip2regionResolver);
 sources.add(geoIP2Resolver);
 
 // 创建引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithCustomSources(sources);
+IpQueryEngine engine = IpQueryEngineFactory.createFromSources(sources);
 
 // 查询
 IpInfo info = engine.query("8.8.8.8");
@@ -306,7 +300,7 @@ IpInfo info = engine.query("8.8.8.8");
 public class CustomGeoIP2Resolver extends GeoIP2Resolver {
     
     public CustomGeoIP2Resolver(File dbFile, String name, int weight) throws IOException {
-        super(dbFile, name, weight);
+        super(dbFile, Arrays.asList("zh-CN", "en"), name, weight);
     }
     
     @Override
@@ -327,38 +321,26 @@ public class CustomGeoIP2Resolver extends GeoIP2Resolver {
 ### 2. 结合其他数据源使用
 
 ```java
-// 创建包含GeoIP2和API数据源的混合引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithAllSources(
-    "path/to/ip2region.xdb",  // ip2region数据库路径
-    1000,                     // 本地数据源限流速率
-    100,                      // 淘宝API限流速率
-    100,                      // ipapi.co限流速率
-    100,                      // Pacific网络API限流速率
-    100,                      // IP9 API限流速率
-    100,                      // IPInfo API限流速率
-    100,                      // XXLB API限流速率
-    100,                      // Vore API限流速率
-    100                       // IP-MOE API限流速率
-    // 注意：GeoIP2需要手动添加到数据源中
+// 创建包含所有数据源的混合引擎
+IpQueryEngine engine = IpQueryEngineFactory.createAllSourceEngine(
+    false,  // speedPriority
+    null,   // maxCacheSize
+    null,   // expireAfterWrite
+    null    // expireAfterAccess
 );
 ```
 
-要使用GeoIP2与API数据源结合，需要手动创建数据源列表：
+要使用特定的数据源组合，可以手动创建数据源列表：
 
 ```java
 List<IpSource> sources = new ArrayList<>();
 
-// 添加GeoIP2解析器
-File geoIP2DbFile = new File("path/to/GeoLite2-City.mmdb");
-GeoIP2Resolver geoIP2Resolver = new GeoIP2Resolver(geoIP2DbFile, "GeoIP2", 100);
-sources.add(geoIP2Resolver);
-
 // 添加API解析器
-TaobaoIpResolver taobaoResolver = new TaobaoIpResolver(100, "TaobaoAPI", 90);
+TaobaoIpResolver taobaoResolver = new TaobaoIpResolver(3, "TaobaoAPI", 90);
 sources.add(taobaoResolver);
 
 // 创建引擎
-IpQueryEngine engine = IpQueryEngineFactory.createWithCustomSources(sources);
+IpQueryEngine engine = IpQueryEngineFactory.createFromSources(sources);
 ```
 
 ---
@@ -406,7 +388,7 @@ ip2region解析器依赖：
 <dependency>
     <groupId>org.lionsoul</groupId>
     <artifactId>ip2region</artifactId>
-    <version>2.7.0</version>
+    <version>3.2.0</version>
     <optional>true</optional>
 </dependency>
 ```
@@ -421,10 +403,9 @@ ip2region解析器依赖：
 
 为了简化使用，本库支持自动从资源目录加载数据库文件。您可以将数据库文件放置在以下位置之一：
 
-1. `src/main/resources/auto-ip2region/ip2region.xdb` - ip2region数据库
-2. `src/main/resources/auto-ip2region/GeoLite2-City.mmdb` - GeoIP2数据库
-3. `src/main/resources/ip2region.xdb` - ip2region数据库（根目录）
-4. `src/main/resources/GeoLite2-City.mmdb` - GeoIP2数据库（根目录）
+1. `src/main/resources/auto-ip2region/ip2region_v4.xdb` - ip2region IPv4数据库
+2. `src/main/resources/auto-ip2region/ip2region_v6.xdb` - ip2region IPv6数据库
+3. `src/main/resources/auto-ip2region/GeoLite2-City.mmdb` - GeoIP2数据库
 
 当使用`IpQueryEngineFactory.tryLoadLocalSources()`方法时，系统会自动尝试从以上位置加载数据库文件。
 
@@ -434,15 +415,22 @@ ip2region解析器依赖：
 - 简化部署过程，无需关心文件路径
 
 ### 手动获取数据库
+使用本库前，需要下载相应的数据库文件
 
-GeoIP2数据库可以从MaxMind官网免费获取：
+**GeoIP2数据库可以从MaxMind官网免费获取**：
 
 1. 访问 [MaxMind GeoLite2](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
 2. 注册账号并登录
 3. 下载 GeoLite2 City 数据库
 4. 解压获得 `GeoLite2-City.mmdb` 文件
 
-注意：数据库需要定期更新以保证准确性。
+**ip2region从github仓库下载**
+- 下载地址：[https://github.com/lionsoul2014/ip2region/tree/master/data](https://github.com/lionsoul2014/ip2region/tree/master/data)
+- IP_V4 文件名：`ip2region_v4.xdb`
+- IP_V6 文件名：`ip2region_v6.xdb`
+
+> 注意：ip2region和GeoIP2数据库为可选依赖，只有在使用对应的本地解析器时才需要添加相关依赖和数据库文件 数据库需要定期更新以保证准确性。
+
 
 ---
 

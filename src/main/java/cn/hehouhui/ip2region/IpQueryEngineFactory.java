@@ -28,7 +28,7 @@ public class IpQueryEngineFactory {
     private static volatile Boolean LOAD_IP2REGION_CLASS;
 
 
-    public static final String GEO_IP_DB_FILE = "geolite2-city.mmdb";
+    public static final String GEO_IP_DB_FILE = "GeoLite2-City.mmdb";
 
     public static final String IP2REGION_DB_V4_FILE = "ip2region_v4.xdb";
 
@@ -141,7 +141,7 @@ public class IpQueryEngineFactory {
                 if ("jar".equals(v4ResourceUrl.getProtocol())) {
                     // 从jar包中提取文件到临时目录
                     java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(TEMP_DIR + File.pathSeparator + "ip2region");
-                    java.nio.file.Path tempFile = tempDir.resolve("ip2region_v4.xdb");
+                    java.nio.file.Path tempFile = tempDir.resolve(IP2REGION_DB_V4_FILE);
                     try (java.io.InputStream is = v4ResourceUrl.openStream()) {
                         java.nio.file.Files.copy(is, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                     }
@@ -157,7 +157,7 @@ public class IpQueryEngineFactory {
                 if ("jar".equals(v6ResourceUrl.getProtocol())) {
                     // 从jar包中提取文件到临时目录
                     java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(TEMP_DIR + File.pathSeparator + "ip2region");
-                    java.nio.file.Path tempFile = tempDir.resolve("ip2region_v6.xdb");
+                    java.nio.file.Path tempFile = tempDir.resolve(IP2REGION_DB_V6_FILE);
                     try (java.io.InputStream is = v6ResourceUrl.openStream()) {
                         java.nio.file.Files.copy(is, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                     }
