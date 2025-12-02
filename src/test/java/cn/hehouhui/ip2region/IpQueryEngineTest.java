@@ -49,10 +49,37 @@ public class IpQueryEngineTest {
     }
 
     @Test
+    public void testIpInfoExtendedFields() {
+        // Test new fields
+        IpInfo info = new IpInfo();
+        info.setAsn("AS4812");
+        info.setAsnOwner("CHINANET-SH-AP");
+        info.setLongitude(121.474);
+        info.setLatitude(31.2304);
+        info.setTimezone("Asia/Shanghai");
+        info.setUsageType("corporate");
+        info.setNativeIp(true);
+        info.setRisk("low");
+        info.setProxy(false);
+        info.setCrawlerName("-");
+
+        assertEquals("AS4812", info.getAsn());
+        assertEquals("CHINANET-SH-AP", info.getAsnOwner());
+        assertEquals(121.474, info.getLongitude());
+        assertEquals(31.2304, info.getLatitude());
+        assertEquals("Asia/Shanghai", info.getTimezone());
+        assertEquals("corporate", info.getUsageType());
+        assertEquals(true, info.getNativeIp());
+        assertEquals("low", info.getRisk());
+        assertEquals(false, info.getProxy());
+        assertEquals("-", info.getCrawlerName());
+    }
+
+    @Test
     public void testLocalIp2RegionResolver() throws IOException {
         // Create a mock resolver for testing
         LocalIp2RegionResolver resolver = new LocalIp2RegionResolver(
-                null, 100, "TestResolver", 50);
+                null, "TestResolver", 50);
 
         assertEquals("TestResolver", resolver.getName());
         assertEquals(50, resolver.getWeight());

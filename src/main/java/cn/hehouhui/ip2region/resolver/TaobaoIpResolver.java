@@ -69,6 +69,18 @@ public class TaobaoIpResolver extends AbstractNetworkIpSource {
         ipInfo.setCity(data.has("city") && !data.get("city").isJsonNull() ? data.get("city").getAsString() : "");
         ipInfo.setIsp(data.has("isp") && !data.get("isp").isJsonNull() ? data.get("isp").getAsString() : "");
 
+        // 当前淘宝API不提供以下字段，但为将来扩展保留
+        // ipInfo.setAsn(...);
+        // ipInfo.setAsnOwner(...);
+        // ipInfo.setLongitude(...);
+        // ipInfo.setLatitude(...);
+        // ipInfo.setTimezone(...);
+        // ipInfo.setUsageType(...);
+        // ipInfo.setNativeIp(...);
+        // ipInfo.setRisk(...);
+        // ipInfo.setProxy(...);
+        // ipInfo.setCrawlerName(...);
+
         return Optional.of(ipInfo);
     }
 }

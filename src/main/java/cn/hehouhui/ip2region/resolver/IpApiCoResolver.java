@@ -69,6 +69,24 @@ public class IpApiCoResolver extends AbstractNetworkIpSource {
         ipInfo.setProvince(jsonResponse.has("region") && !jsonResponse.get("region").isJsonNull() ? jsonResponse.get("region").getAsString() : "");
         ipInfo.setCity(jsonResponse.has("city") && !jsonResponse.get("city").isJsonNull() ? jsonResponse.get("city").getAsString() : "");
         ipInfo.setIsp(jsonResponse.has("org") && !jsonResponse.get("org").isJsonNull() ? jsonResponse.get("org").getAsString() : "");
+
+        // 填充新增字段
+        if (jsonResponse.has("asn") && !jsonResponse.get("asn").isJsonNull()) {
+            ipInfo.setAsn(jsonResponse.get("asn").getAsString());
+        }
+
+        if (jsonResponse.has("longitude") && !jsonResponse.get("longitude").isJsonNull()) {
+            ipInfo.setLongitude(jsonResponse.get("longitude").getAsDouble());
+        }
+
+        if (jsonResponse.has("latitude") && !jsonResponse.get("latitude").isJsonNull()) {
+            ipInfo.setLatitude(jsonResponse.get("latitude").getAsDouble());
+        }
+
+        if (jsonResponse.has("timezone") && !jsonResponse.get("timezone").isJsonNull()) {
+            ipInfo.setTimezone(jsonResponse.get("timezone").getAsString());
+        }
+
         return Optional.of(ipInfo);
     }
 }

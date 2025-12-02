@@ -33,7 +33,21 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
         try {
             String region = searcher.search(ip);
             updateSuccessStats();
-            return IpInfo.fromString(ip, region);
+            IpInfo ipInfo = IpInfo.fromString(ip, region);
+            
+            // 本地数据库不提供新增字段信息，但为保持一致性保留默认值
+            // ipInfo.setAsn(null);
+            // ipInfo.setAsnOwner(null);
+            // ipInfo.setLongitude(null);
+            // ipInfo.setLatitude(null);
+            // ipInfo.setTimezone(null);
+            // ipInfo.setUsageType(null);
+            // ipInfo.setNativeIp(null);
+            // ipInfo.setRisk(null);
+            // ipInfo.setProxy(null);
+            // ipInfo.setCrawlerName(null);
+            
+            return ipInfo;
         } catch (Exception e) {
             updateFailureStats();
             throw e;

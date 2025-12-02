@@ -33,6 +33,46 @@ public class IpInfo {
      * ISP运营商
      */
     private String isp;
+    /**
+     * ASN编号
+     */
+    private String asn;
+    /**
+     * ASN所有者
+     */
+    private String asnOwner;
+    /**
+     * 经度
+     */
+    private Double longitude;
+    /**
+     * 纬度
+     */
+    private Double latitude;
+    /**
+     * 时区
+     */
+    private String timezone;
+    /**
+     * IP使用类型
+     */
+    private String usageType;
+    /**
+     * 是否原生IP
+     */
+    private Boolean nativeIp;
+    /**
+     * 风险值
+     */
+    private String risk;
+    /**
+     * 是否代理
+     */
+    private Boolean proxy;
+    /**
+     * 爬虫名称
+     */
+    private String crawlerName;
 
     /**
      * 默认构造函数
@@ -199,6 +239,186 @@ public class IpInfo {
         this.isp = isp;
     }
 
+    /**
+     * 获取ASN编号
+     *
+     * @return ASN编号
+     */
+    public String getAsn() {
+        return asn;
+    }
+
+    /**
+     * 设置ASN编号
+     *
+     * @param asn ASN编号
+     */
+    public void setAsn(String asn) {
+        this.asn = asn;
+    }
+
+    /**
+     * 获取ASN所有者
+     *
+     * @return ASN所有者
+     */
+    public String getAsnOwner() {
+        return asnOwner;
+    }
+
+    /**
+     * 设置ASN所有者
+     *
+     * @param asnOwner ASN所有者
+     */
+    public void setAsnOwner(String asnOwner) {
+        this.asnOwner = asnOwner;
+    }
+
+    /**
+     * 获取经度
+     *
+     * @return 经度
+     */
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    /**
+     * 设置经度
+     *
+     * @param longitude 经度
+     */
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    /**
+     * 获取纬度
+     *
+     * @return 纬度
+     */
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    /**
+     * 设置纬度
+     *
+     * @param latitude 纬度
+     */
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    /**
+     * 获取时区
+     *
+     * @return 时区
+     */
+    public String getTimezone() {
+        return timezone;
+    }
+
+    /**
+     * 设置时区
+     *
+     * @param timezone 时区
+     */
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
+    /**
+     * 获取IP使用类型
+     *
+     * @return IP使用类型
+     */
+    public String getUsageType() {
+        return usageType;
+    }
+
+    /**
+     * 设置IP使用类型
+     *
+     * @param usageType IP使用类型
+     */
+    public void setUsageType(String usageType) {
+        this.usageType = usageType;
+    }
+
+    /**
+     * 获取是否原生IP
+     *
+     * @return 是否原生IP
+     */
+    public Boolean getNativeIp() {
+        return nativeIp;
+    }
+
+    /**
+     * 设置是否原生IP
+     *
+     * @param nativeIp 是否原生IP
+     */
+    public void setNativeIp(Boolean nativeIp) {
+        this.nativeIp = nativeIp;
+    }
+
+    /**
+     * 获取风险值
+     *
+     * @return 风险值
+     */
+    public String getRisk() {
+        return risk;
+    }
+
+    /**
+     * 设置风险值
+     *
+     * @param risk 风险值
+     */
+    public void setRisk(String risk) {
+        this.risk = risk;
+    }
+
+    /**
+     * 获取是否代理
+     *
+     * @return 是否代理
+     */
+    public Boolean getProxy() {
+        return proxy;
+    }
+
+    /**
+     * 设置是否代理
+     *
+     * @param proxy 是否代理
+     */
+    public void setProxy(Boolean proxy) {
+        this.proxy = proxy;
+    }
+
+    /**
+     * 获取爬虫名称
+     *
+     * @return 爬虫名称
+     */
+    public String getCrawlerName() {
+        return crawlerName;
+    }
+
+    /**
+     * 设置爬虫名称
+     *
+     * @param crawlerName 爬虫名称
+     */
+    public void setCrawlerName(String crawlerName) {
+        this.crawlerName = crawlerName;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -209,12 +429,22 @@ public class IpInfo {
             Objects.equals(region, ipInfo.region) &&
             Objects.equals(province, ipInfo.province) &&
             Objects.equals(city, ipInfo.city) &&
-            Objects.equals(isp, ipInfo.isp);
+            Objects.equals(isp, ipInfo.isp) &&
+            Objects.equals(asn, ipInfo.asn) &&
+            Objects.equals(asnOwner, ipInfo.asnOwner) &&
+            Objects.equals(longitude, ipInfo.longitude) &&
+            Objects.equals(latitude, ipInfo.latitude) &&
+            Objects.equals(timezone, ipInfo.timezone) &&
+            Objects.equals(usageType, ipInfo.usageType) &&
+            Objects.equals(nativeIp, ipInfo.nativeIp) &&
+            Objects.equals(risk, ipInfo.risk) &&
+            Objects.equals(proxy, ipInfo.proxy) &&
+            Objects.equals(crawlerName, ipInfo.crawlerName);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(ip, country, region, province, city, isp);
+        return Objects.hash(ip, country, region, province, city, isp, asn, asnOwner, longitude, latitude, timezone, usageType, nativeIp, risk, proxy, crawlerName);
     }
 
     @Override
@@ -226,6 +456,16 @@ public class IpInfo {
             ", province='" + province + '\'' +
             ", city='" + city + '\'' +
             ", isp='" + isp + '\'' +
+            ", asn='" + asn + '\'' +
+            ", asnOwner='" + asnOwner + '\'' +
+            ", longitude=" + longitude +
+            ", latitude=" + latitude +
+            ", timezone='" + timezone + '\'' +
+            ", usageType='" + usageType + '\'' +
+            ", nativeIp=" + nativeIp +
+            ", risk='" + risk + '\'' +
+            ", proxy=" + proxy +
+            ", crawlerName='" + crawlerName + '\'' +
             '}';
     }
 }

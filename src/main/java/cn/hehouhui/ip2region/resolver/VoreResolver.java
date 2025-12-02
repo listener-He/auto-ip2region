@@ -62,6 +62,15 @@ public class VoreResolver extends AbstractNetworkIpSource {
         ipInfo.setCity(ipData.has("info2") && !ipData.get("info2").isJsonNull() ? ipData.get("info2").getAsString() : "");
         ipInfo.setIsp(ipData.has("isp") && !ipData.get("isp").isJsonNull() ? ipData.get("isp").getAsString() : "");
 
+        // 尝试填充新字段
+        JsonObject adcode = jsonResponse.getAsJsonObject("adcode");
+        if (adcode != null) {
+            if (adcode.has("a") && !adcode.get("a").isJsonNull()) {
+                // 可以将行政编码存储在ASN字段中
+                ipInfo.setAsn(adcode.get("a").getAsString());
+            }
+        }
+
         return Optional.of(ipInfo);
     }
 }

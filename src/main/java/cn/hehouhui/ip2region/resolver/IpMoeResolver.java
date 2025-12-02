@@ -66,6 +66,44 @@ public class IpMoeResolver extends AbstractNetworkIpSource {
         ipInfo.setCity(city);
         ipInfo.setIsp(jsonResponse.get("provider").getAsString());
 
+        // 尝试填充新字段
+        if (jsonResponse.has("asn") && !jsonResponse.get("asn").isJsonNull()) {
+            ipInfo.setAsn(jsonResponse.get("asn").getAsString());
+        }
+
+        if (jsonResponse.has("asn_owner") && !jsonResponse.get("asn_owner").isJsonNull()) {
+            ipInfo.setAsnOwner(jsonResponse.get("asn_owner").getAsString());
+        }
+
+        if (jsonResponse.has("timezone") && !jsonResponse.get("timezone").isJsonNull()) {
+            ipInfo.setTimezone(jsonResponse.get("timezone").getAsString());
+        }
+
+        if (jsonResponse.has("usage_type") && !jsonResponse.get("usage_type").isJsonNull()) {
+            ipInfo.setUsageType(jsonResponse.get("usage_type").getAsString());
+        }
+
+        if (jsonResponse.has("risk") && !jsonResponse.get("risk").isJsonNull()) {
+            ipInfo.setRisk(jsonResponse.get("risk").getAsString());
+        }
+
+        if (jsonResponse.has("proxy") && !jsonResponse.get("proxy").isJsonNull()) {
+            ipInfo.setProxy(jsonResponse.get("proxy").getAsBoolean());
+        }
+
+        if (jsonResponse.has("crawler") && !jsonResponse.get("crawler").isJsonNull()) {
+            ipInfo.setCrawlerName(jsonResponse.get("crawler").getAsString());
+        }
+
+        // 经纬度信息
+        if (jsonResponse.has("longitude") && !jsonResponse.get("longitude").isJsonNull()) {
+            ipInfo.setLongitude(jsonResponse.get("longitude").getAsDouble());
+        }
+
+        if (jsonResponse.has("latitude") && !jsonResponse.get("latitude").isJsonNull()) {
+            ipInfo.setLatitude(jsonResponse.get("latitude").getAsDouble());
+        }
+
         return Optional.of(ipInfo);
     }
 }
