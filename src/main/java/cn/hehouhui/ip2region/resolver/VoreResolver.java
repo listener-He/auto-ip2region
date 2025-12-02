@@ -25,7 +25,7 @@ public class VoreResolver extends AbstractNetworkIpSource {
      * @param permitsPerSecond   每秒许可数（限流速率）
      * @param httpRequestHandler HTTP请求处理器
      */
-    public VoreResolver(String name, int weight, double permitsPerSecond, HttpRequestHandler httpRequestHandler) {
+    public VoreResolver(double permitsPerSecond, String name, int weight, HttpRequestHandler httpRequestHandler) {
         super(name, weight, permitsPerSecond, httpRequestHandler);
     }
 

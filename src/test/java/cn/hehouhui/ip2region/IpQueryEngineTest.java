@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -96,6 +97,30 @@ public class IpQueryEngineTest {
     }
 
     @Test
+    public void testTryLoadLocalSources() {
+        // 测试自动加载本地数据源功能
+        List<IpSource> sources = IpQueryEngineFactory.tryLoadLocalSources();
+        // 由于我们没有实际的数据库文件，这里应该是空列表
+        assertNotNull(sources);
+    }
+
+    @Test
+    public void testTryLoadGeoIpSource() {
+        // 测试尝试加载GeoIP数据源
+        Optional<IpSource> source = IpQueryEngineFactory.tryLoadGeoIpSource();
+        // 由于我们没有实际的数据库文件和依赖，这里应该返回empty
+        assertFalse(source.isPresent());
+    }
+
+    @Test
+    public void testTryLoadIp2RegionSource() {
+        // 测试尝试加载ip2region数据源
+        Optional<IpSource> source = IpQueryEngineFactory.tryLoadIp2RegionSource();
+        // 由于我们没有实际的数据库文件和依赖，这里应该返回empty
+        assertFalse(source.isPresent());
+    }
+
+    @Test
     public void testIpQueryEngineFactory() {
         // Just test that the factory class exists
         assertNotNull(IpQueryEngineFactory.class);
@@ -107,7 +132,7 @@ public class IpQueryEngineTest {
         List<IpSource> sources = new ArrayList<>();
 
         // Test engine creation
-        IpQueryEngine engine = IpQueryEngineFactory.createWithCustomSources(sources);
+        IpQueryEngine engine = IpQueryEngineFactory.createFromSources(sources);
         assertNotNull(engine);
     }
 }

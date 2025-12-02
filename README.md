@@ -127,7 +127,7 @@ Auto IP2Region采用先进的加权负载均衡算法，综合考虑多个维度
 - 响应时间 500-1000ms：0.4
 - 响应时间 > 1000ms：0.2
 
-综合评估公式：`可用性得分 = 限流等待时间得分 × 0.6 + 响应时间得分 × 0.4`
+综合可用性评估：`可用性得分 = 限流等待时间得分 × 0.6 + 响应时间得分 × 0.4`
 
 ### 轮询示例
 
@@ -255,7 +255,29 @@ try {
 }
 ```
 
-#### 3. 使用免费API数据源
+#### 3. 自动从资源目录加载本地数据库
+
+```java
+// 自动尝试从资源目录加载所有可用的本地数据源
+List<IpSource> localSources = IpQueryEngineFactory.tryLoadLocalSources();
+
+// 如果找到了本地数据源，则创建引擎
+if (!localSources.isEmpty()) {
+    IpQueryEngine engine = IpQueryEngineFactory.createFromSources(localSources);
+    
+    // 查询IP信息
+    try {
+        IpInfo info = engine.query("8.8.8.8");
+        System.out.println(info);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+} else {
+    System.out.println("未找到可用的本地数据库");
+}
+```
+
+#### 4. 使用免费API数据源
 
 ```java
 // 创建包含所有免费API数据源的查询引擎
@@ -279,7 +301,7 @@ try {
 }
 ```
 
-#### 4. 混合使用本地数据库和API
+#### 5. 混合使用本地数据库和API
 
 ```java
 // 创建混合数据源的查询引擎（本地+所有免费API）

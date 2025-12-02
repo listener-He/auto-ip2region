@@ -9,10 +9,10 @@ import cn.hehouhui.ip2region.loadbalancer.WeightedLoadBalancer;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -22,9 +22,13 @@ import java.util.stream.Collectors;
  * @date 2025-12-01
  */
 public class IpQueryEngine {
+
     private final List<IpSource> sources;
+
     private final LoadBalancer loadBalancer;
+
     private final FallbackStrategy fallbackStrategy;
+
     private final Cache<String, IpInfo> cache;
 
     /**
@@ -33,25 +37,29 @@ public class IpQueryEngine {
      * @param sources IP数据源列表
      */
     public IpQueryEngine(List<IpSource> sources) {
-        this(sources, new WeightedLoadBalancer(), new LocalFirstFallbackStrategy());
+        this(sources, new WeightedLoadBalancer(), new LocalFirstFallbackStrategy(), 1024, Duration.ofMinutes(10), Duration.ofMinutes(3));
     }
 
     /**
      * 构造函数，可自定义负载均衡器和降级策略
      *
-     * @param sources          IP数据源列表
-     * @param loadBalancer     负载均衡器
-     * @param fallbackStrategy 降级策略
+     * @param sources           IP数据源列表
+     * @param loadBalancer      负载均衡器
+     * @param fallbackStrategy  降级策略
+     * @param maxCacheSize      缓存最大容量
+     * @param expireAfterWrite  缓存写入后多久过期
+     * @param expireAfterAccess 缓存访问后多久过期
      */
-    public IpQueryEngine(List<IpSource> sources, LoadBalancer loadBalancer, FallbackStrategy fallbackStrategy) {
+    public IpQueryEngine(List<IpSource> sources, LoadBalancer loadBalancer, FallbackStrategy fallbackStrategy, int maxCacheSize, Duration expireAfterWrite, Duration expireAfterAccess) {
         this.sources = new ArrayList<>(sources);
         this.loadBalancer = loadBalancer;
         this.fallbackStrategy = fallbackStrategy;
 
         // 初始化缓存
         this.cache = CacheBuilder.newBuilder()
-            .maximumSize(10000)
-            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .maximumSize(maxCacheSize)
+            .expireAfterAccess(expireAfterAccess)
+            .expireAfterWrite(expireAfterWrite)
             .recordStats()
             .build();
     }
@@ -66,6 +74,7 @@ public class IpQueryEngine {
      * 4. 执行查询，如果成功则缓存结果并返回
      * 5. 如果查询失败，则根据降级策略尝试其他数据源
      * </pre>
+     *
      * @param ip IP地址
      *
      * @return IP信息
@@ -75,6 +84,9 @@ public class IpQueryEngine {
      *                   - 当数据源查询过程中发生错误时抛出
      */
     public IpInfo query(String ip) throws Exception {
+        if (ip == null || ip.isEmpty()) {
+            return new IpInfo();
+        }
         // 先尝试从缓存获取
         IpInfo cachedInfo = cache.getIfPresent(ip);
         if (cachedInfo != null) {

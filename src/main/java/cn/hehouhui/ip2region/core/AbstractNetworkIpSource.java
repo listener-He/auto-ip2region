@@ -32,6 +32,18 @@ public abstract class AbstractNetworkIpSource extends AbstractIpSource {
 
     protected final HttpRequestHandler httpRequestHandler;
 
+
+    /**
+     * 构造函数
+     *
+     * @param weight           数据源权重
+     * @param permitsPerSecond 每秒许可数（限流速率）
+     * @param httpRequestHandler HTTP请求处理器
+     */
+    public AbstractNetworkIpSource(int weight, double permitsPerSecond, HttpRequestHandler httpRequestHandler) {
+        this(null, weight, permitsPerSecond, httpRequestHandler);
+    }
+
     /**
      * 构造函数
      *

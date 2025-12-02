@@ -2,6 +2,7 @@ package cn.hehouhui.ip2region.resolver;
 
 import cn.hehouhui.ip2region.IpInfo;
 import cn.hehouhui.ip2region.core.AbstractIpSource;
+import com.maxmind.db.Reader;
 import com.maxmind.geoip2.DatabaseReader;
 import com.maxmind.geoip2.exception.GeoIp2Exception;
 import com.maxmind.geoip2.model.CityResponse;
@@ -9,6 +10,7 @@ import com.maxmind.geoip2.model.CityResponse;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.List;
 
 /**
  * GeoIP2本地数据库解析器，基于MaxMind GeoIP2数据库实现。
@@ -23,13 +25,14 @@ public class GeoIP2Resolver extends AbstractIpSource {
      * 构造函数
      *
      * @param dbFile           GeoIP2数据库文件
+     * @param locales          语言列表，用于获取GeoIP2数据库中的信息
      * @param name             解析器名称
      * @param weight           解析器权重
      * @throws IOException 文件读取异常
      */
-    public GeoIP2Resolver(File dbFile, String name, int weight) throws IOException {
+    public GeoIP2Resolver(File dbFile, List<String> locales, String name, int weight) throws IOException {
         super(name, weight);
-        this.reader = new DatabaseReader.Builder(dbFile).build();
+        this.reader = new DatabaseReader.Builder(dbFile).locales(locales).fileMode(Reader.FileMode.MEMORY_MAPPED).build();
     }
 
     /**
@@ -49,37 +52,37 @@ public class GeoIP2Resolver extends AbstractIpSource {
         try {
             InetAddress ipAddress = InetAddress.getByName(ip);
             CityResponse response = reader.city(ipAddress);
-            
+
             IpInfo ipInfo = new IpInfo();
             ipInfo.setIp(ip);
-            
+
             // 填充基本地理信息
             if (response.getCountry() != null) {
                 ipInfo.setCountry(response.getCountry().getName());
             }
-            
+
             if (response.getSubdivisions() != null && !response.getSubdivisions().isEmpty()) {
                 ipInfo.setProvince(response.getSubdivisions().get(0).getName());
             }
-            
+
             if (response.getCity() != null) {
                 ipInfo.setCity(response.getCity().getName());
             }
-            
+
             // 填充ISP信息
             if (response.getTraits() != null) {
                 ipInfo.setIsp(response.getTraits().getIsp());
                 ipInfo.setAsn(String.valueOf(response.getTraits().getAutonomousSystemNumber()));
                 ipInfo.setAsnOwner(response.getTraits().getAutonomousSystemOrganization());
             }
-            
+
             // 填充经纬度信息
             if (response.getLocation() != null) {
                 ipInfo.setLatitude(response.getLocation().getLatitude());
                 ipInfo.setLongitude(response.getLocation().getLongitude());
                 ipInfo.setTimezone(response.getLocation().getTimeZone());
             }
-            
+
             updateSuccessStats();
             return ipInfo;
         } catch (IOException | GeoIp2Exception e) {

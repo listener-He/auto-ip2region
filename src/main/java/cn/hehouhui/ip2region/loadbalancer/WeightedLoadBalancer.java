@@ -4,7 +4,6 @@ import cn.hehouhui.ip2region.core.AbstractNetworkIpSource;
 import cn.hehouhui.ip2region.core.IpSource;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 基于权重、执行次数、成功率和限流状况的加权负载均衡器。
@@ -44,11 +43,6 @@ public class WeightedLoadBalancer implements LoadBalancer {
             .max()
             .orElse(0);
 
-        // 如果所有数据源执行次数都为0，则使用随机选择
-        if (maxExecutionCount == 0) {
-            int index = ThreadLocalRandom.current().nextInt(sources.size());
-            return sources.get(index);
-        }
 
         IpSource bestSource = sources.getFirst();
         double bestScore = calculateScore(bestSource, maxExecutionCount);
@@ -83,9 +77,15 @@ public class WeightedLoadBalancer implements LoadBalancer {
         double successRateScore = source.getSuccessRate() * 0.25;
 
         // 执行次数占比20%（执行次数越少优先级越高）
-        double executionCountRatio = (double) source.getExecutionCount() / maxExecutionCount;
-        double executionCountScore = (1 - executionCountRatio) * 0.2;
-
+        double executionCountScore = 0;
+        if (maxExecutionCount > 0) {
+            if (source.getExecutionCount() <= 0) {
+                executionCountScore = 1.0;
+            } else {
+                double executionCountRatio = (double) source.getExecutionCount() / maxExecutionCount;
+                executionCountScore = (1 - executionCountRatio) * 0.2;
+            }
+        }
         // 可用性占比15%（基于限流器的可用性评估）
         double availableRateScore = calculateAvailableRate(source) * 0.15;
 

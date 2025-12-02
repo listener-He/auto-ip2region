@@ -98,6 +98,9 @@ IP地理信息载体，封装解析结果
 | `createWithFreeApiSources(...)` | 仅免费API数据源 |
 | `createWithMixedSources(...)` | 本地+API混合数据源 |
 | `createWithCustomSources(...)` | 自定义数据源 |
+| `tryLoadLocalSources()` | 自动从资源目录加载本地数据源 |
+| `tryLoadGeoIpSource()` | 尝试加载GeoIP2数据源 |
+| `tryLoadIp2RegionSource()` | 尝试加载ip2region数据源 |
 
 ### 2. 核心接口
 
@@ -246,7 +249,29 @@ try {
 }
 ```
 
-### 2. 混合使用多种本地数据库
+### 2. 自动从资源目录加载本地数据库
+
+```java
+// 自动尝试从资源目录加载所有可用的本地数据源
+List<IpSource> localSources = IpQueryEngineFactory.tryLoadLocalSources();
+
+// 如果找到了本地数据源，则创建引擎
+if (!localSources.isEmpty()) {
+    IpQueryEngine engine = IpQueryEngineFactory.createFromSources(localSources);
+    
+    // 查询IP信息
+    try {
+        IpInfo info = engine.query("8.8.8.8");
+        System.out.println(info);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+} else {
+    System.out.println("未找到可用的本地数据库");
+}
+```
+
+### 3. 混合使用多种本地数据库
 
 ```java
 // 创建数据源列表
@@ -390,7 +415,25 @@ ip2region解析器依赖：
 
 ---
 
-## 📂 数据库获取
+## 📂 数据库获取与部署
+
+### 自动资源加载机制
+
+为了简化使用，本库支持自动从资源目录加载数据库文件。您可以将数据库文件放置在以下位置之一：
+
+1. `src/main/resources/auto-ip2region/ip2region.xdb` - ip2region数据库
+2. `src/main/resources/auto-ip2region/GeoLite2-City.mmdb` - GeoIP2数据库
+3. `src/main/resources/ip2region.xdb` - ip2region数据库（根目录）
+4. `src/main/resources/GeoLite2-City.mmdb` - GeoIP2数据库（根目录）
+
+当使用`IpQueryEngineFactory.tryLoadLocalSources()`方法时，系统会自动尝试从以上位置加载数据库文件。
+
+这种方式特别适用于：
+- 将数据库文件打包进jar包，便于分发
+- 允许最终用户在其项目资源目录中提供自己的数据库文件
+- 简化部署过程，无需关心文件路径
+
+### 手动获取数据库
 
 GeoIP2数据库可以从MaxMind官网免费获取：
 

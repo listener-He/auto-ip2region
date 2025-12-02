@@ -22,6 +22,11 @@ public abstract class AbstractIpSource implements IpSource {
     protected volatile long lastFailureTime = 0;
 
 
+
+    public AbstractIpSource(int weight) {
+        this(null ,weight);
+    }
+
     /**
      * 构造函数
      *
@@ -30,7 +35,7 @@ public abstract class AbstractIpSource implements IpSource {
      */
     public AbstractIpSource(String name, int weight) {
         if (name == null || name.isEmpty()) {
-            this.name = this.getClass().getSimpleName().toLowerCase().replace("resolver", "");
+            this.name = this.getClass().getSimpleName().replace("Resolver", "");
         } else {
             this.name = name;
         }

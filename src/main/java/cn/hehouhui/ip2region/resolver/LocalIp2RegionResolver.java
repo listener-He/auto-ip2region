@@ -68,6 +68,14 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
         this.searcher = searcher;
     }
 
+
+    /**
+     * 查询IP信息
+     *
+     * @param ip IP地址
+     * @return IpInfo对象
+     * @throws Exception 查询异常
+     */
     @Override
     public IpInfo query(String ip) throws Exception {
 
