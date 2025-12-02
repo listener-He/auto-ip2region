@@ -84,6 +84,8 @@ public class IpQueryEngineFactory {
      * @param ip9PermitsPerSecond     IP9 API限流速率
      * @param ipInfoPermitsPerSecond  IPInfo API限流速率
      * @param xxlbPermitsPerSecond    XXLB API限流速率
+     * @param vorePermitsPerSecond    Vore API限流速率
+     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
      *
      * @return IP查询引擎
      */
@@ -93,9 +95,11 @@ public class IpQueryEngineFactory {
         double pacificPermitsPerSecond,
         double ip9PermitsPerSecond,
         double ipInfoPermitsPerSecond,
-        double xxlbPermitsPerSecond) {
+        double xxlbPermitsPerSecond,
+        double vorePermitsPerSecond,
+        double ipMoePermitsPerSecond) {
         return createWithAllFreeApiSources(taobaoPermitsPerSecond, ipApiCoPermitsPerSecond, pacificPermitsPerSecond,
-            ip9PermitsPerSecond, ipInfoPermitsPerSecond, xxlbPermitsPerSecond, null);
+            ip9PermitsPerSecond, ipInfoPermitsPerSecond, xxlbPermitsPerSecond, vorePermitsPerSecond, ipMoePermitsPerSecond, null);
     }
 
     /**
@@ -107,6 +111,8 @@ public class IpQueryEngineFactory {
      * @param ip9PermitsPerSecond     IP9 API限流速率
      * @param ipInfoPermitsPerSecond  IPInfo API限流速率
      * @param xxlbPermitsPerSecond    XXLB API限流速率
+     * @param vorePermitsPerSecond    Vore API限流速率
+     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
      * @param httpRequestHandler      HTTP请求处理器
      *
      * @return IP查询引擎
@@ -118,6 +124,8 @@ public class IpQueryEngineFactory {
         double ip9PermitsPerSecond,
         double ipInfoPermitsPerSecond,
         double xxlbPermitsPerSecond,
+        double vorePermitsPerSecond,
+        double ipMoePermitsPerSecond,
         HttpRequestHandler httpRequestHandler) {
 
         TaobaoIpResolver taobaoSource = httpRequestHandler == null ?
@@ -144,6 +152,14 @@ public class IpQueryEngineFactory {
             new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70) :
             new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70, httpRequestHandler);
 
+        VoreResolver voreSource = httpRequestHandler == null ?
+            new VoreResolver("Vore", 75, vorePermitsPerSecond, null) :
+            new VoreResolver("Vore", 75, vorePermitsPerSecond, httpRequestHandler);
+
+        IpMoeResolver ipMoeSource = httpRequestHandler == null ?
+            new IpMoeResolver("IP-MOE", 75, ipMoePermitsPerSecond, null) :
+            new IpMoeResolver("IP-MOE", 75, ipMoePermitsPerSecond, httpRequestHandler);
+
         List<IpSource> sources = new ArrayList<>();
         sources.add(taobaoSource);
         sources.add(ipApiCoSource);
@@ -151,6 +167,8 @@ public class IpQueryEngineFactory {
         sources.add(ip9Source);
         sources.add(ipInfoSource);
         sources.add(xxlbSource);
+        sources.add(voreSource);
+        sources.add(ipMoeSource);
 
         return new IpQueryEngine(sources);
     }
@@ -227,6 +245,8 @@ public class IpQueryEngineFactory {
      * @param ip9PermitsPerSecond     IP9 API限流速率
      * @param ipInfoPermitsPerSecond  IPInfo API限流速率
      * @param xxlbPermitsPerSecond    XXLB API限流速率
+     * @param vorePermitsPerSecond    Vore API限流速率
+     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
      *
      * @return IP查询引擎
      *
@@ -240,9 +260,11 @@ public class IpQueryEngineFactory {
         double pacificPermitsPerSecond,
         double ip9PermitsPerSecond,
         double ipInfoPermitsPerSecond,
-        double xxlbPermitsPerSecond) throws IOException {
+        double xxlbPermitsPerSecond,
+        double vorePermitsPerSecond,
+        double ipMoePermitsPerSecond) throws IOException {
         return createWithAllSources(ip2regionDbPath, localPermitsPerSecond, taobaoPermitsPerSecond, ipApiCoPermitsPerSecond,
-            pacificPermitsPerSecond, ip9PermitsPerSecond, ipInfoPermitsPerSecond, xxlbPermitsPerSecond, null);
+            pacificPermitsPerSecond, ip9PermitsPerSecond, ipInfoPermitsPerSecond, xxlbPermitsPerSecond, vorePermitsPerSecond, ipMoePermitsPerSecond, null);
     }
 
     /**
@@ -256,6 +278,8 @@ public class IpQueryEngineFactory {
      * @param ip9PermitsPerSecond     IP9 API限流速率
      * @param ipInfoPermitsPerSecond  IPInfo API限流速率
      * @param xxlbPermitsPerSecond    XXLB API限流速率
+     * @param vorePermitsPerSecond    Vore API限流速率
+     * @param ipMoePermitsPerSecond   IP-MOE API限流速率
      * @param httpRequestHandler      HTTP请求处理器
      *
      * @return IP查询引擎
@@ -271,6 +295,8 @@ public class IpQueryEngineFactory {
         double ip9PermitsPerSecond,
         double ipInfoPermitsPerSecond,
         double xxlbPermitsPerSecond,
+        double vorePermitsPerSecond,
+        double ipMoePermitsPerSecond,
         HttpRequestHandler httpRequestHandler) throws IOException {
 
         // 创建本地数据源
@@ -302,6 +328,14 @@ public class IpQueryEngineFactory {
             new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70) :
             new XxlbResolver(xxlbPermitsPerSecond, "XXLB", 70, httpRequestHandler);
 
+        VoreResolver voreSource = httpRequestHandler == null ?
+            new VoreResolver("Vore", 75, 10, null) :
+            new VoreResolver("Vore", 75, 10, httpRequestHandler);
+
+        IpMoeResolver ipMoeSource = httpRequestHandler == null ?
+            new IpMoeResolver("IP-MOE", 75, 10, null) :
+            new IpMoeResolver("IP-MOE", 75, 10, httpRequestHandler);
+
         List<IpSource> sources = new ArrayList<>();
         sources.add(localSource);
         sources.add(taobaoSource);
@@ -310,6 +344,8 @@ public class IpQueryEngineFactory {
         sources.add(ip9Source);
         sources.add(ipInfoSource);
         sources.add(xxlbSource);
+        sources.add(voreSource);
+        sources.add(ipMoeSource);
 
         return new IpQueryEngine(sources);
     }

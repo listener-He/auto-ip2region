@@ -263,6 +263,8 @@ IpQueryEngine engine = IpQueryEngineFactory.createWithAllFreeApiSources(
     100,  // IP9 API限流速率
     100,  // IPInfo API限流速率
     100,  // XXLB API限流速率
+    100,  // Vore API限流速率
+    100,  // IP-MOE API限流速率
     customHandler // 自定义HTTP请求处理器
 );
 
