@@ -1,9 +1,11 @@
 package cn.hehouhui.ip2region;
 
 import cn.hehouhui.ip2region.core.IpSource;
+import cn.hehouhui.ip2region.resolver.GeoIP2Resolver;
 import cn.hehouhui.ip2region.resolver.LocalIp2RegionResolver;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,6 +87,12 @@ public class IpQueryEngineTest {
         assertEquals(50, resolver.getWeight());
         assertEquals(1.0, resolver.getSuccessRate(), 0.001);
         assertTrue(resolver.isAvailable());
+    }
+
+    @Test
+    public void testGeoIP2ResolverClassExists() {
+        // Just test that the GeoIP2Resolver class exists
+        assertNotNull(GeoIP2Resolver.class);
     }
 
     @Test

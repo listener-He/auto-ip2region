@@ -47,6 +47,7 @@ Auto IP2Region 是一个智能化的IP地址地理信息解析库，它结合了
 | 类型 | 数据源 | 默认权重 | 特点 |
 |------|--------|------|-----|
 | 本地数据库 | ip2region | 100  | 高性能，无需网络 |
+| 本地数据库 | GeoIP2 | 100  | MaxMind GeoIP2数据库 |
 | 免费API | 淘宝IP库 | 90   | 国内IP准确率高 |
 | 免费API | ipapi.co | 80   | 国际IP覆盖广 |
 | 免费API | 太平洋网络 | 85   | 中等权重 |
@@ -202,40 +203,47 @@ System.out.println("缓存大小: " + metrics.getCacheSize());
 </dependency>
 ```
 
-### 📖 基础使用
+### 📥 下载数据库文件
 
-#### 1. 本地数据库查询（推荐）
+使用本库前，需要下载相应的数据库文件：
+
+1. **ip2region数据库**（可选）：
+   - 下载地址：[https://github.com/lionsoul2014/ip2region/tree/master/data](https://github.com/lionsoul2014/ip2region/tree/master/data)
+   - 文件名：`ip2region.xdb`
+
+2. **GeoIP2数据库**（可选）：
+   - 下载地址：[https://dev.maxmind.com/geoip/geolite2-free-geolocation-data](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
+   - 文件名：`GeoLite2-City.mmdb`
+
+> 注意：ip2region和GeoIP2数据库为可选依赖，只有在使用对应的本地解析器时才需要添加相关依赖和数据库文件。
+
+### 💡 基本用法
+
+#### 1. 使用本地ip2region数据库
 
 ```java
 // 创建只包含本地ip2region数据源的查询引擎
 IpQueryEngine engine = IpQueryEngineFactory.createWithLocalSource(
     "path/to/ip2region.xdb",  // 数据库文件路径
-    1000                      // 限流速率(每秒请求数)
+    1000                      // 限流速率（每秒1000次查询）
 );
 
 // 查询IP信息
 try {
     IpInfo info = engine.query("8.8.8.8");
     System.out.println(info);
-    // 输出示例: IpInfo{country='美国', region='加利福尼亚', city='山景城', isp='谷歌'}
 } catch (Exception e) {
     e.printStackTrace();
 }
 ```
 
-#### 2. 混合数据源查询
+#### 2. 使用GeoIP2本地数据库
 
 ```java
-// 创建完整的混合数据源查询引擎（本地+所有免费API）
-IpQueryEngine engine = IpQueryEngineFactory.createWithAllSources(
-    "path/to/ip2region.xdb",  // ip2region数据库文件路径
-    1000,  // 本地ip2region数据源限流速率
-    100,   // 淘宝API限流速率
-    100,   // ipapi.co限流速率
-    100,   // Pacific网络API限流速率
-    100,   // IP9 API限流速率
-    100,   // IPInfo API限流速率
-    100    // XXLB API限流速率
+// 创建只包含GeoIP2数据源的查询引擎
+IpQueryEngine engine = IpQueryEngineFactory.createWithGeoIP2Source(
+    new File("path/to/GeoLite2-City.mmdb"),  // GeoIP2数据库文件
+    1000                                     // 限流速率（每秒1000次查询）
 );
 
 // 查询IP信息
@@ -247,7 +255,55 @@ try {
 }
 ```
 
-## 🛠️ 高级用法
+#### 3. 使用免费API数据源
+
+```java
+// 创建包含所有免费API数据源的查询引擎
+IpQueryEngine engine = IpQueryEngineFactory.createWithAllFreeApiSources(
+    100,  // 淘宝API限流速率
+    100,  // ipapi.co限流速率
+    100,  // Pacific网络API限流速率
+    100,  // IP9 API限流速率
+    100,  // IPInfo API限流速率
+    100,  // XXLB API限流速率
+    100,  // Vore API限流速率
+    100   // IP-MOE API限流速率
+);
+
+// 查询IP信息
+try {
+    IpInfo info = engine.query("8.8.8.8");
+    System.out.println(info);
+} catch (Exception e) {
+    e.printStackTrace();
+}
+```
+
+#### 4. 混合使用本地数据库和API
+
+```java
+// 创建混合数据源的查询引擎（本地+所有免费API）
+IpQueryEngine engine = IpQueryEngineFactory.createWithAllSources(
+    "path/to/ip2region.xdb",  // ip2region数据库文件路径
+    1000,                     // 本地数据源限流速率
+    100,                      // 淘宝API限流速率
+    100,                      // ipapi.co限流速率
+    100,                      // Pacific网络API限流速率
+    100,                      // IP9 API限流速率
+    100,                      // IPInfo API限流速率
+    100,                      // XXLB API限流速率
+    100,                      // Vore API限流速率
+    100                       // IP-MOE API限流速率
+);
+
+// 查询IP信息
+try {
+    IpInfo info = engine.query("8.8.8.8");
+    System.out.println(info);
+} catch (Exception e) {
+    e.printStackTrace();
+}
+```
 
 ### 🔧 自定义HTTP请求处理器
 

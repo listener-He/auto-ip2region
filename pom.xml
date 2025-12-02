@@ -35,14 +35,25 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <guava.version>33.0.0-jre</guava.version>
         <gson.version>2.10.1</gson.version>
+        <ip2region.version>2.7.0</ip2region.version>
+        <geoip2.version>2.16.1</geoip2.version>
     </properties>
     
     <dependencies>
-        <!-- ip2region -->
+        <!-- ip2region (optional) -->
         <dependency>
             <groupId>org.lionsoul</groupId>
             <artifactId>ip2region</artifactId>
-            <version>2.7.0</version>
+            <version>${ip2region.version}</version>
+            <optional>true</optional>
+        </dependency>
+        
+        <!-- GeoIP2 (optional) -->
+        <dependency>
+            <groupId>com.maxmind.geoip2</groupId>
+            <artifactId>geoip2</artifactId>
+            <version>${geoip2.version}</version>
+            <optional>true</optional>
         </dependency>
         
         <!-- Google Guava for rate limiting and caching -->

@@ -13,14 +13,39 @@ import java.io.IOException;
  * @date 2025-12-01
  */
 public class LocalIp2RegionResolver extends AbstractIpSource {
+
     private final Searcher searcher;
+
 
     /**
      * 构造函数
      *
-     * @param searcher         ip2region搜索引擎
-     * @param name             解析器名称
-     * @param weight           解析器权重
+     * @param dbFile        ip2region数据库文件路径
+     * @param isVectorIndex 是否使用向量索引
+     * @param isBuffer      是否使用缓存
+     * @param name          解析器名称
+     * @param weight        解析器权重
+     *
+     * @throws IOException IO异常
+     */
+    public LocalIp2RegionResolver(String dbFile, boolean isVectorIndex, boolean isBuffer, String name, int weight) throws IOException {
+        super(name, weight);
+        if (isBuffer) {
+            this.searcher = Searcher.newWithBuffer(Searcher.loadContentFromFile(dbFile));
+        } else if (isVectorIndex) {
+            this.searcher = Searcher.newWithVectorIndex(dbFile, Searcher.loadVectorIndexFromFile(dbFile));
+        } else {
+            this.searcher = Searcher.newWithFileOnly(dbFile);
+        }
+    }
+
+
+    /**
+     * 构造函数
+     *
+     * @param searcher ip2region搜索引擎
+     * @param name     解析器名称
+     * @param weight   解析器权重
      */
     public LocalIp2RegionResolver(Searcher searcher, String name, int weight) {
         super(name, weight);
@@ -34,7 +59,7 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
             String region = searcher.search(ip);
             updateSuccessStats();
             IpInfo ipInfo = IpInfo.fromString(ip, region);
-            
+
             // 本地数据库不提供新增字段信息，但为保持一致性保留默认值
             // ipInfo.setAsn(null);
             // ipInfo.setAsnOwner(null);
@@ -46,7 +71,7 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
             // ipInfo.setRisk(null);
             // ipInfo.setProxy(null);
             // ipInfo.setCrawlerName(null);
-            
+
             return ipInfo;
         } catch (Exception e) {
             updateFailureStats();
