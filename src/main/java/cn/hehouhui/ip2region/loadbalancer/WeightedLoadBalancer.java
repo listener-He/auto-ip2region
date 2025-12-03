@@ -34,7 +34,7 @@ public class WeightedLoadBalancer implements LoadBalancer {
         }
 
         if (sources.size() == 1) {
-            return sources.getFirst();
+            return sources.get(0);
         }
 
         // 计算所有数据源中的最大执行次数，用于负载均衡计算
@@ -44,7 +44,7 @@ public class WeightedLoadBalancer implements LoadBalancer {
             .orElse(0);
 
 
-        IpSource bestSource = sources.getFirst();
+        IpSource bestSource = sources.get(0);
         double bestScore = calculateScore(bestSource, maxExecutionCount);
 
         // 遍历所有数据源，找出得分最高的

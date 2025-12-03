@@ -17,6 +17,8 @@ import java.util.Optional;
  */
 public class TaobaoIpResolver extends AbstractNetworkIpSource {
 
+    private String accessKey = "alibaba-inc";
+
     /**
      * 构造函数
      *
@@ -51,9 +53,11 @@ public class TaobaoIpResolver extends AbstractNetworkIpSource {
      */
     @Override
     protected Optional<IpInfo> request(String ip) throws Exception {
-        String urlString = "https://ip.taobao.com/outGetIpInfo?ip=" + ip + "&accessKey=alibaba-inc";
+        String urlString = "https://ip.taobao.com/outGetIpInfo?ip=" + ip + "&accessKey=" + accessKey;
         String response = httpRequestHandler.get(urlString, 5000);
-
+        if (response == null || response.isEmpty()) {
+            return Optional.empty();
+        }
         JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
         int code = jsonResponse.get("code").getAsInt();
 
@@ -82,5 +86,13 @@ public class TaobaoIpResolver extends AbstractNetworkIpSource {
         // ipInfo.setCrawlerName(...);
 
         return Optional.of(ipInfo);
+    }
+
+    public String getAccessKey() {
+        return accessKey;
+    }
+
+    public void setAccessKey(String accessKey) {
+        this.accessKey = accessKey;
     }
 }

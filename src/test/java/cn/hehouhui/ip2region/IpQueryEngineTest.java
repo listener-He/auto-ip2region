@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -134,5 +135,17 @@ public class IpQueryEngineTest {
         // Test engine creation
         IpQueryEngine engine = IpQueryEngineFactory.createFromSources(sources);
         assertNotNull(engine);
+    }
+
+
+    @Test
+    public void  testFreeApiEngine() throws Exception {
+        IpQueryEngine ipQueryEngine = IpQueryEngineFactory.createFreeApiEngine(100, Duration.ofSeconds(60), Duration.ofSeconds(30));
+        IpInfo query1 = ipQueryEngine.query("");
+        System.out.println(query1);
+        IpInfo query2 = ipQueryEngine.query("");
+        System.out.println(query2);
+        IpInfo query3 = ipQueryEngine.query("");
+        System.out.println(query3);
     }
 }
