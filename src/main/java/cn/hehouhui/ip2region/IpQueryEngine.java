@@ -64,6 +64,12 @@ public class IpQueryEngine {
             .build();
     }
 
+    public void addSource(IpSource source) {
+        if (!sources.contains(source)) {
+            sources.add(source);
+        }
+    }
+
     /**
      * 查询IP信息
      * <pre>

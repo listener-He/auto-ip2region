@@ -60,7 +60,7 @@ public class IpApiCoResolver extends AbstractNetworkIpSource {
 
         // Check if response contains error
         if (jsonResponse.has("error")) {
-            throw new Exception("API Error: " + jsonResponse.get("reason").getAsString());
+            throw new Exception(getName() + " API Error: " + jsonResponse.get("reason").getAsString());
         }
 
         IpInfo ipInfo = new IpInfo();

@@ -122,8 +122,8 @@ public class WeightedLoadBalancer implements LoadBalancer {
             // 检查最近一次获取令牌的时间，如果超过一定时间未使用，则认为可用性较高
             long timeSinceLastAcquire = System.currentTimeMillis() - abstractNetworkIpSource.getLastAcquireTime();
 
-            // 如果最近5秒内没有请求，则认为系统负载较低
-            if (timeSinceLastAcquire > 5000) {
+            // 如果最近3秒内没有请求，则认为系统负载较低
+            if (timeSinceLastAcquire > 3000) {
                 return 1.0;
             }
 
@@ -142,7 +142,7 @@ public class WeightedLoadBalancer implements LoadBalancer {
         }
 
         // 对于其他类型的源，基于可用性返回默认值
-        return 0.9;
+        return 0.7;
     }
 
     /**

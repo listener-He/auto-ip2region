@@ -70,28 +70,53 @@ public class AggregatedMetrics {
     public static AggregatedMetrics fromSources(List<IpSource> sources, long cacheSize, String cacheStats) {
         DataSourceMetrics localMetrics = new DataSourceMetrics();
         DataSourceMetrics networkMetrics = new DataSourceMetrics();
-        List<SourceMetrics> sourceMetrics = new ArrayList<>();
+        List<SourceMetrics> networkSourceMetrics = new ArrayList<>();
+        List<SourceMetrics> localSourceMetrics = new ArrayList<>();
+
+        // 分别统计本地和网络数据源
         for (IpSource source : sources) {
             // 根据数据源类型分别统计
             if (source instanceof AbstractNetworkIpSource networkSource) {
+                SourceMetrics sm = new SourceMetrics(
+                    networkSource.getName(),
+                    networkSource.getWeight(),
+                    networkSource.getSuccessRate(),
+                    networkSource.getExecutionCount(),
+                    networkSource.getFailureCount(),
+                    networkSource.getTotalResponseTime().get(),
+                    networkSource.getResponseCount().get()
+                );
+                networkSourceMetrics.add(sm);
+
                 networkMetrics.executionCount += source.getExecutionCount();
                 networkMetrics.failureCount += source.getFailureCount();
                 // 注意：这里我们不能简单地累加平均响应时间，而应该累加总响应时间
                 networkMetrics.totalResponseTime += networkSource.getTotalResponseTime().get();
-                networkMetrics.responseCount += source.getExecutionCount();
-                sourceMetrics.add(new SourceMetrics(networkSource.getName(), networkSource.getWeight(), networkSource.getSuccessRate(), networkSource.getExecutionCount(), networkSource.getFailureCount(), networkSource.getTotalResponseTime().get(), networkSource.getResponseCount().get()));
+                networkMetrics.responseCount += networkSource.getResponseCount().get();
             } else {
+                SourceMetrics sm = new SourceMetrics(
+                    source.getName(),
+                    source.getWeight(),
+                    source.getSuccessRate(),
+                    source.getExecutionCount(),
+                    source.getFailureCount(),
+                    0L,
+                    0L
+                );
+                localSourceMetrics.add(sm);
+
                 localMetrics.executionCount += source.getExecutionCount();
                 localMetrics.failureCount += source.getFailureCount();
             }
         }
-        networkMetrics.setAllSources(sourceMetrics);
+        networkMetrics.setAllSources(networkSourceMetrics);
+        localMetrics.setAllSources(localSourceMetrics);
         // 计算总计统计
         DataSourceMetrics totalMetrics = new DataSourceMetrics();
         totalMetrics.executionCount = localMetrics.executionCount + networkMetrics.executionCount;
         totalMetrics.failureCount = localMetrics.failureCount + networkMetrics.failureCount;
         totalMetrics.totalResponseTime = networkMetrics.totalResponseTime; // 只有网络数据源有响应时间
-        totalMetrics.responseCount = networkMetrics.responseCount; // 只有网络数据源有响应次数
+        totalMetrics.responseCount = networkMetrics.responseCount; // 只统计网络数据源的响应次数
 
         return new AggregatedMetrics(localMetrics, networkMetrics, totalMetrics, cacheSize, cacheStats);
     }
@@ -302,6 +327,18 @@ public class AggregatedMetrics {
             this.failureCount = failureCount;
             this.totalResponseTime = totalResponseTime;
             this.responseCount = responseCount;
+        }
+
+        /**
+         * 获取平均响应时间（仅网络数据源）
+         *
+         * @return 平均响应时间（毫秒）
+         */
+        public long getAverageResponseTime() {
+            if (responseCount == 0) {
+                return 0;
+            }
+            return totalResponseTime / responseCount;
         }
 
         public String getName() {

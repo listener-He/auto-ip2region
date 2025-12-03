@@ -219,14 +219,14 @@ public class IpQueryEngineFactory {
      */
     public static List<IpSource> loadFreeApiSources(HttpRequestHandler httpRequestHandler, boolean speedPriority) {
         TaobaoIpResolver taobaoSource = new TaobaoIpResolver(3, "TaobaoAPI", speedPriority ? 50 : 90, httpRequestHandler);
-        IpApiCoResolver ipApiCoSource = new IpApiCoResolver(2, "IpApiCo", speedPriority ? 40 : 80, httpRequestHandler);
-        Ip9Resolver ip9Source = new Ip9Resolver(1, "IP9", speedPriority ? 25 : 65, httpRequestHandler);
-        IpInfoResolver ipInfoSource = new IpInfoResolver(1, "IPInfo", speedPriority ? 20 : 60, httpRequestHandler);
-        XxlbResolver xxlbSource = new XxlbResolver(1, "XXLB", speedPriority ? 15 : 55, httpRequestHandler);
-        VoreResolver voreSource = new VoreResolver(1, "Vore", speedPriority ? 10 : 50, httpRequestHandler);
-        IpMoeResolver ipMoeSource = new IpMoeResolver(1, "IP-MOE", speedPriority ? 10 : 50, httpRequestHandler);
-        PacificIpResolver pacificSource = new PacificIpResolver(1, "Pacific", speedPriority ? 10 : 50, httpRequestHandler);
-        ZhengbingdongResolver zhengbingdongSource = new ZhengbingdongResolver(8,"Zhengbingdong", speedPriority ? 10 : 50, httpRequestHandler);
+        IpApiCoResolver ipApiCoSource = new IpApiCoResolver(2, "IpApiCo", speedPriority ? 40 : 70, httpRequestHandler);
+        Ip9Resolver ip9Source = new Ip9Resolver(1, "IP9", speedPriority ? 25 : 60, httpRequestHandler);
+        IpInfoResolver ipInfoSource = new IpInfoResolver(1, "IPInfo", speedPriority ? 20 : 55, httpRequestHandler);
+        XxlbResolver xxlbSource = new XxlbResolver(1, "XXLB", speedPriority ? 15 : 30, httpRequestHandler);
+        VoreResolver voreSource = new VoreResolver(1, "Vore", speedPriority ? 10 : 30, httpRequestHandler);
+        IpMoeResolver ipMoeSource = new IpMoeResolver(1, "IP-MOE", speedPriority ? 10 : 30, httpRequestHandler);
+        PacificIpResolver pacificSource = new PacificIpResolver(1, "Pacific", speedPriority ? 10 : 30, httpRequestHandler);
+        ZhengbingdongResolver zhengbingdongSource = new ZhengbingdongResolver(1,"Zhengbingdong", speedPriority ? 10 : 30, httpRequestHandler);
         List<IpSource> sources = new ArrayList<>();
         sources.add(taobaoSource);
         sources.add(ipApiCoSource);

@@ -44,7 +44,6 @@ public class IpMoeResolver extends AbstractNetworkIpSource {
         if (response == null || response.isEmpty()) {
             return Optional.empty();
         }
-
         JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
         int status = jsonResponse.get("status").getAsInt();
 

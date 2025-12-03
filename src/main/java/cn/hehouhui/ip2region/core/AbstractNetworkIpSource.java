@@ -163,7 +163,7 @@ public abstract class AbstractNetworkIpSource extends AbstractIpSource {
             long responseTime = System.currentTimeMillis() - startTime;
             updateResponseTimeStats(responseTime);
             updateFailureStats();
-            throw new Exception("Network error occurred", e);
+            throw new Exception(this.getName() + " Network error occurred", e);
         } catch (Exception e) {
             long responseTime = System.currentTimeMillis() - startTime;
             updateResponseTimeStats(responseTime);

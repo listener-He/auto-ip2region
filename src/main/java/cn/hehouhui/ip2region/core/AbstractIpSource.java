@@ -94,13 +94,13 @@ public abstract class AbstractIpSource implements IpSource {
         if (lastFailureTime > lastSuccessTime) {
             // 检查失败后是否经过了一定时间，避免持续失败导致的长时间不可用
             long timeSinceLastFailure = System.currentTimeMillis() - lastFailureTime;
-            if (timeSinceLastFailure < 5000) { // 5秒内失败则认为暂时不可用
+            if (timeSinceLastFailure < 3000) { // 3秒内失败则认为暂时不可用
                 return false;
             }
         }
 
-        // 成功率不低于50%则认为可用
-        return getSuccessRate() >= 0.5;
+        // 成功率不低于30%则认为可用
+        return getSuccessRate() >= 0.3;
     }
 
 

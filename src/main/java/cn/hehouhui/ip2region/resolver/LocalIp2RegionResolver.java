@@ -73,7 +73,9 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
      * 查询IP信息
      *
      * @param ip IP地址
+     *
      * @return IpInfo对象
+     *
      * @throws Exception 查询异常
      */
     @Override
@@ -82,7 +84,20 @@ public class LocalIp2RegionResolver extends AbstractIpSource {
         try {
             String region = searcher.search(ip);
             updateSuccessStats();
-            return IpInfo.fromString(ip, region);
+            String[] split = region.split("\\|");
+            IpInfo ipInfo = new IpInfo();
+            ipInfo.setIp(ip);
+            ipInfo.setCountry(split[0]);
+            if (split.length > 1) {
+                ipInfo.setProvince(split[1]);
+            }
+            if (split.length > 2) {
+                ipInfo.setCity(split[2]);
+            }
+            if (split.length > 3) {
+                ipInfo.setIsp(split[3]);
+            }
+            return ipInfo;
         } catch (Exception e) {
             updateFailureStats();
             throw e;

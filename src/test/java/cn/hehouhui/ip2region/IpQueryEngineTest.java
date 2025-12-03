@@ -5,12 +5,17 @@ import cn.hehouhui.ip2region.resolver.GeoIP2Resolver;
 import cn.hehouhui.ip2region.resolver.LocalIp2RegionResolver;
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -140,12 +145,84 @@ public class IpQueryEngineTest {
 
     @Test
     public void  testFreeApiEngine() throws Exception {
-        IpQueryEngine ipQueryEngine = IpQueryEngineFactory.createFreeApiEngine(100, Duration.ofSeconds(60), Duration.ofSeconds(30));
-        IpInfo query1 = ipQueryEngine.query("");
-        System.out.println(query1);
-        IpInfo query2 = ipQueryEngine.query("");
-        System.out.println(query2);
-        IpInfo query3 = ipQueryEngine.query("");
-        System.out.println(query3);
+        IpQueryEngine ipQueryEngine = IpQueryEngineFactory.createFreeApiEngine(1024, Duration.ofSeconds(60), Duration.ofSeconds(30));
+        ipQueryEngine.addSource(new LocalIp2RegionResolver("ip2region_v4.xdb", null,true,false,"ip2region",1));
+        // 读取同级目录下文件名为 test_ip.txt的内容
+        List<String> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader("test_ip.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        // 使用线程池并发处理IP查询任务
+        int size = lines.size();
+        ExecutorService executorService = Executors.newFixedThreadPool(100);
+        CountDownLatch countDownLatch = new CountDownLatch(size);
+        for (int i = 0; i < size; i++) {
+            int finalI = i;
+            executorService.execute(() -> {
+                String ip = lines.get(finalI);
+                try {
+                    IpInfo result = ipQueryEngine.query(ip);
+                    System.out.println("第" + finalI + "次查询结果：" + result.toString());
+                } catch (Exception e) {
+                    System.out.println("第" + finalI + "次查询异常：" + e.getMessage());
+                }
+                countDownLatch.countDown();
+            });
+        }
+
+        // 等待所有任务完成
+        try {
+            countDownLatch.await();
+        } finally {
+            executorService.shutdown();
+        }
+
+        System.out.println(">>>>>>>>>>>>> 查询结束 >>>>>>>>>>>>>");
+        AggregatedMetrics aggregatedMetrics = ipQueryEngine.getAggregatedMetrics();
+        System.out.println("缓存统计：" + aggregatedMetrics.getCacheStats());
+        System.out.println("执行次数：" + aggregatedMetrics.getTotalMetrics().getExecutionCount());
+        System.out.println("成功次数：" + aggregatedMetrics.getTotalMetrics().getResponseCount());
+        System.out.println("失败次数：" + aggregatedMetrics.getTotalMetrics().getFailureCount());
+        System.out.println("总耗时：" + aggregatedMetrics.getTotalMetrics().getTotalResponseTime());
+        System.out.println("平均耗时：" + aggregatedMetrics.getTotalMetrics().getAverageResponseTime());
+        System.out.println("成功率：" + aggregatedMetrics.getTotalMetrics().getSuccessRate());
+        System.out.println(">>>>>>>>>>>>> 本地数据源统计 >>>>>>>>>>>>>");
+        AggregatedMetrics.DataSourceMetrics localMetrics = aggregatedMetrics.getLocalMetrics();
+        if (localMetrics.getAllSources() != null && !localMetrics.getAllSources().isEmpty()) {
+            localMetrics.getAllSources().forEach(source -> {
+                System.out.println("数据源名称：" + source.getName());
+                System.out.println("数据源执行次数：" + source.getExecutionCount());
+                System.out.println("数据源成功次数：" + (source.getExecutionCount() - source.getFailureCount()));
+                System.out.println("数据源失败次数：" + source.getFailureCount());
+                System.out.println("数据源总耗时：" + source.getTotalResponseTime());
+                System.out.println("数据源成功率：" + source.getSuccessRate());
+                System.out.println("数据源平均耗时：" + source.getAverageResponseTime() + "ms");
+            });
+        } else {
+            System.out.println("数据源名称：ip2region");
+            System.out.println("数据源执行次数：" + localMetrics.getExecutionCount());
+            System.out.println("数据源成功次数：" + (localMetrics.getExecutionCount() - localMetrics.getFailureCount()));
+            System.out.println("数据源失败次数：" + localMetrics.getFailureCount());
+            System.out.println("数据源总耗时：" + localMetrics.getTotalResponseTime());
+            System.out.println("数据源成功率：" + localMetrics.getSuccessRate());
+            System.out.println("数据源平均耗时：" + localMetrics.getAverageResponseTime() + "ms");
+        }
+
+        System.out.println(">>>>>>>>>>>>> 网络数据源统计 >>>>>>>>>>>>>");
+        aggregatedMetrics.getNetworkMetrics().getAllSources().forEach(sourceMetrics -> {
+            System.out.println("数据源名称：" + sourceMetrics.getName());
+            System.out.println("数据源执行次数：" + sourceMetrics.getExecutionCount());
+            System.out.println("数据源成功次数：" + (sourceMetrics.getExecutionCount() - sourceMetrics.getFailureCount()));
+            System.out.println("数据源失败次数：" + sourceMetrics.getFailureCount());
+            System.out.println("数据源总耗时：" + sourceMetrics.getTotalResponseTime());
+            System.out.println("数据源成功率：" + sourceMetrics.getSuccessRate());
+            System.out.println("数据源平均耗时：" + sourceMetrics.getAverageResponseTime() + "ms");
+        });
     }
 }

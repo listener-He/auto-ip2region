@@ -58,7 +58,13 @@ public class IpInfoResolver extends AbstractNetworkIpSource {
         if (response == null || response.isEmpty()) {
             return Optional.empty();
         }
-        JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+        JsonObject jsonResponse = null;
+        try {
+            jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+        } catch (Exception e) {
+            throw new RuntimeException(getName() + " / " + response, e);
+        }
+
 
         IpInfo ipInfo = new IpInfo();
         ipInfo.setIp(jsonResponse.has("ip") && !jsonResponse.get("ip").isJsonNull() ? jsonResponse.get("ip").getAsString() : "");

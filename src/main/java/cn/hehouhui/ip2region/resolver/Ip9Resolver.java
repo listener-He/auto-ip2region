@@ -63,7 +63,7 @@ public class Ip9Resolver extends AbstractNetworkIpSource {
         // 检查返回码
         int ret = jsonResponse.get("ret").getAsInt();
         if (ret != 200) {
-            throw new Exception("API Error: ret=" + ret);
+            throw new Exception(getName() + " API Error: ret=" + ret);
         }
 
         JsonObject data = jsonResponse.getAsJsonObject("data");
