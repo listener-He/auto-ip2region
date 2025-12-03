@@ -226,6 +226,7 @@ public class IpQueryEngineFactory {
         VoreResolver voreSource = new VoreResolver(1, "Vore", speedPriority ? 10 : 50, httpRequestHandler);
         IpMoeResolver ipMoeSource = new IpMoeResolver(1, "IP-MOE", speedPriority ? 10 : 50, httpRequestHandler);
         PacificIpResolver pacificSource = new PacificIpResolver(1, "Pacific", speedPriority ? 10 : 50, httpRequestHandler);
+        ZhengbingdongResolver zhengbingdongSource = new ZhengbingdongResolver(8,"Zhengbingdong", speedPriority ? 10 : 50, httpRequestHandler);
         List<IpSource> sources = new ArrayList<>();
         sources.add(taobaoSource);
         sources.add(ipApiCoSource);
@@ -235,6 +236,7 @@ public class IpQueryEngineFactory {
         sources.add(voreSource);
         sources.add(ipMoeSource);
         sources.add(pacificSource);
+        sources.add(zhengbingdongSource);
         return sources;
     }
 

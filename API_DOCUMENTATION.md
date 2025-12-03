@@ -171,7 +171,7 @@ IP数据源抽象基类，提供统计/限流能力
 | `XxlbResolver` | XXLB API | 1     | 50 |
 | `VoreResolver` | Vore API | 1     | 50 |
 | `IpMoeResolver` | IP-MOE API | 1     | 50 |
-
+| `ZhengbingdongResolver` | Zhengbingdong API | 10     | 50 |
 #### HTTP实现
 - `DefaultHttpRequestHandler`：基于JDK HttpClient的默认实现
 
@@ -337,7 +337,9 @@ List<IpSource> sources = new ArrayList<>();
 
 // 添加API解析器
 TaobaoIpResolver taobaoResolver = new TaobaoIpResolver(3, "TaobaoAPI", 90);
+ZhengbingdongResolver zhengbingdongResolver = new ZhengbingdongResolver("Zhengbingdong", 50);
 sources.add(taobaoResolver);
+sources.add(zhengbingdongResolver);
 
 // 创建引擎
 IpQueryEngine engine = IpQueryEngineFactory.createFromSources(sources);
