@@ -17,7 +17,7 @@
         implementing load balancing based on weights, execution counts, and success rates,
         with local query degradation capabilities.
     </description>
-    <url>https://github.com/listener-He/ip2region</url>
+    <url>https://github.com/listener-He/auto-ip2region</url>
     <developers>
         <developer>
             <name>Honesty</name>
